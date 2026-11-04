@@ -1,0 +1,952 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PriceMyBooth — Farmers Market &amp; Cottage Food Pricing + Event Profit Tracker</title>
+<style>
+  :root{
+    --green:#2e7d32; --green-dark:#1b5e20; --green-light:#e8f5e9;
+    --amber:#ef6c00; --ink:#212121; --muted:#616161; --line:#d7ddd7;
+    --bg:#f7f9f5; --card:#ffffff; --red:#c62828; --blue:#1565c0;
+  }
+  *{box-sizing:border-box}
+  body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif;background:var(--bg);color:var(--ink);font-size:15px;line-height:1.45}
+  header{background:var(--green-dark);color:#fff;padding:14px 16px}
+  header h1{margin:0;font-size:22px}
+  header p{margin:2px 0 0;font-size:13px;opacity:.85}
+  nav{display:flex;flex-wrap:wrap;gap:6px;background:var(--green);padding:8px 12px;position:sticky;top:0;z-index:10}
+  nav button{background:transparent;border:1px solid rgba(255,255,255,.4);color:#fff;padding:7px 12px;border-radius:20px;cursor:pointer;font-size:14px}
+  nav button.active{background:#fff;color:var(--green-dark);font-weight:600}
+  main{max-width:980px;margin:0 auto;padding:16px 12px 60px}
+  .card{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:14px 16px;margin-bottom:16px;box-shadow:0 1px 2px rgba(0,0,0,.04)}
+  .card h2{margin:0 0 8px;font-size:18px;color:var(--green-dark)}
+  .card h3{margin:14px 0 6px;font-size:16px}
+  .hint{color:var(--muted);font-size:13px;margin:4px 0 10px}
+  table{width:100%;border-collapse:collapse;font-size:14px}
+section.tab table{display:block;overflow-x:auto;max-width:100%}
+  th,td{border-bottom:1px solid var(--line);padding:6px 6px;text-align:left;vertical-align:middle}
+  th{color:var(--green-dark);font-size:13px;text-transform:uppercase;letter-spacing:.03em}
+  td.num,th.num{text-align:right}
+  input[type=text],input[type=number],input[type=date],select{width:100%;padding:6px 7px;border:1px solid #bdbdbd;border-radius:6px;font-size:14px;background:#fff}
+  input[type=number]{text-align:right}
+  .row{display:flex;gap:10px;flex-wrap:wrap}
+  .row>div{flex:1;min-width:130px}
+  label{font-size:12px;color:var(--muted);display:block;margin-bottom:2px}
+  .btn{background:var(--green);color:#fff;border:none;padding:8px 14px;border-radius:7px;cursor:pointer;font-size:14px}
+  .btn:hover{background:var(--green-dark)}
+  .btn.secondary{background:#fff;color:var(--green-dark);border:1px solid var(--green)}
+  .btn.danger{background:#fff;color:var(--red);border:1px solid var(--red)}
+  .btn.small{padding:4px 9px;font-size:13px;min-height:40px;}
+  .big{font-size:22px;font-weight:700;color:var(--green-dark)}
+  .stat-grid{display:flex;gap:10px;flex-wrap:wrap;margin-top:8px}
+  .stat{background:var(--green-light);border-radius:8px;padding:8px 12px;min-width:130px;flex:1}
+  .stat .k{font-size:12px;color:var(--muted);text-transform:uppercase;letter-spacing:.03em}
+  .stat .v{font-size:18px;font-weight:700}
+  .pos{color:var(--green-dark)} .neg{color:var(--red)}
+  .pill{display:inline-block;padding:1px 8px;border-radius:10px;font-size:12px;background:var(--green-light);color:var(--green-dark)}
+  .slider-wrap{display:flex;align-items:center;gap:12px;margin:8px 0}
+  input[type=range]{flex:1;accent-color:var(--green)}
+  .verdict{font-size:13px;margin-top:4px}
+  .del-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px}
+  .tab{display:none} .tab.active{display:block}
+  .gold{background:#fff8e1;border-color:#ffe082}
+  ul.tight{margin:6px 0;padding-left:20px} ul.tight li{margin-bottom:4px}
+  .footer-note{color:var(--muted);font-size:12px;text-align:center;margin-top:24px}
+  @media print{
+    nav,header .no-print,.btn,.del-btn{display:none !important}
+    body{background:#fff} .card{box-shadow:none;break-inside:avoid}
+    .tab{display:block !important}
+  }
+  @media (max-width:640px){ th,td{padding:5px 4px;font-size:13px} header h1{font-size:19px} }
+</style>
+</head>
+<body>
+<header>
+  <h1>🥕 PriceMyBooth</h1>
+  <p>Farmers market &amp; cottage food pricing + event profit tracker — know your true cost, price for profit, see which products actually make money.</p>
+</header>
+<div style="text-align:center;padding:12px 16px;background:#fff8e6;border-bottom:2px solid #e8a13a;"><a href="https://travisbriggs.gumroad.com/l/marketmaker" target="_blank" rel="noopener" style="display:inline-block;background:#e8a13a;color:#1d2b2e;font-weight:800;font-size:17px;padding:10px 22px;border-radius:8px;text-decoration:none;">Get the full version — $39</a></div>
+
+<nav id="topnav">
+  <button data-tab="costing" class="active" onclick="MM.showTab('costing')">🧮 Cost Builder</button>
+  <button data-tab="pricing" onclick="MM.showTab('pricing')">🏷️ Price Setter</button>
+  <button data-tab="events" onclick="MM.showTab('events')">🎪 Event Ledger</button>
+  <button data-tab="rankings" onclick="MM.showTab('rankings')">🏆 Product Rankings</button>
+  <button data-tab="help" onclick="MM.showTab('help')">❓ Help &amp; Backup</button>
+</nav>
+<main>
+  <section id="tab-costing" class="tab active"></section>
+  <section id="tab-pricing" class="tab"></section>
+  <section id="tab-events" class="tab"></section>
+  <section id="tab-rankings" class="tab"></section>
+  <section id="tab-help" class="tab"></section>
+  <p class="footer-note">PriceMyBooth runs 100% offline. Your data is stored only in this browser on this device (localStorage) — nothing is uploaded anywhere. Use Help &amp; Backup to export a copy of your data.</p>
+</main>
+
+<script>
+"use strict";
+/* ============================== DATA ============================== */
+var APP_VERSION = "1.1";
+var LS_KEY = "marketmaker_v1";
+var state = null;
+
+function uid(){ return "id" + Date.now().toString(36) + Math.random().toString(36).slice(2,8); }
+function num(v){ var n = parseFloat(v); return isNaN(n) ? 0 : n; }
+function money(n){ var s = (n<0?"-$":"$"); return s + Math.abs(n).toFixed(2); }
+function pct(n){ return (n*100).toFixed(1) + "%"; }
+function esc(s){ return String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;"); }
+
+function demoData(){
+  var ing = [
+    {id:"ing_straw", name:"Strawberries (fresh)", pkgPrice:18.00, pkgSize:8, unit:"lb"},
+    {id:"ing_sugar", name:"Sugar", pkgPrice:4.50, pkgSize:4, unit:"lb"},
+    {id:"ing_pectin", name:"Pectin", pkgPrice:4.25, pkgSize:1, unit:"box"},
+    {id:"ing_honey", name:"Honey (raw, bulk)", pkgPrice:42.00, pkgSize:5, unit:"lb"},
+    {id:"ing_seed", name:"Radish seed (microgreens)", pkgPrice:12.00, pkgSize:1, unit:"lb"},
+    {id:"ing_coir", name:"Coir grow mats", pkgPrice:8.00, pkgSize:10, unit:"each"}
+  ];
+  var products = [
+    {id:"prod_jam", name:"Strawberry Jam — 8 oz jar", yieldQty:12, packaging:0.85, laborMinutes:45, laborRate:15,
+     marketPrice:6.50,
+     lines:[{ingredientId:"ing_straw", qty:4},{ingredientId:"ing_sugar", qty:2},{ingredientId:"ing_pectin", qty:1}]},
+    {id:"prod_honey", name:"Raw Wildflower Honey — 12 oz jar", yieldQty:20, packaging:0.60, laborMinutes:20, laborRate:15,
+     marketPrice:13.00,
+     lines:[{ingredientId:"ing_honey", qty:15}]},
+    {id:"prod_micro", name:"Spicy Radish Microgreens — 4 oz clamshell", yieldQty:10, packaging:0.45, laborMinutes:15, laborRate:15,
+     marketPrice:5.00,
+     lines:[{ingredientId:"ing_seed", qty:0.05},{ingredientId:"ing_coir", qty:10}]}
+  ];
+  var events = [
+    {id:"ev_demo", name:"Maplewood Farmers Market — Sample Saturday", date:"2026-10-03",
+     boothFee:25, travelCost:12, otherCost:0, cardRatePct:2.9, cardSharePct:100, taxRatePct:0,
+     lines:[
+       {productId:"prod_jam", taken:12, sold:10, priceCharged:6.00},
+       {productId:"prod_honey", taken:10, sold:7, priceCharged:12.00},
+       {productId:"prod_micro", taken:10, sold:9, priceCharged:5.00}
+     ]}
+  ];
+  return {ingredients:ing, products:products, events:events, targetMargin:0.40, isDemo:true};
+}
+
+function load(){
+  try{
+    var raw = localStorage.getItem(LS_KEY);
+    if(raw){ state = JSON.parse(raw); if(!state || !state.products) throw new Error("bad"); }
+    else { state = demoData(); save(); }
+  }catch(e){ state = demoData(); }
+}
+function save(){ try{ localStorage.setItem(LS_KEY, JSON.stringify(state)); }catch(e){} }
+
+/* ============================== MATH (pure) ============================== */
+function ingById(id){ for(var i=0;i<state.ingredients.length;i++) if(state.ingredients[i].id===id) return state.ingredients[i]; return null; }
+function prodById(id){ for(var i=0;i<state.products.length;i++) if(state.products[i].id===id) return state.products[i]; return null; }
+
+function ingCostPerUnit(ing){ return (ing && ing.pkgSize>0) ? ing.pkgPrice/ing.pkgSize : 0; }
+
+function productCost(p){
+  var ingredientCost = 0;
+  (p.lines||[]).forEach(function(ln){
+    var ing = ingById(ln.ingredientId);
+    if(ing) ingredientCost += num(ln.qty) * ingCostPerUnit(ing);
+  });
+  var laborCost = (num(p.laborMinutes)/60) * num(p.laborRate);
+  var batchCost = ingredientCost + laborCost;
+  var perItem = p.yieldQty>0 ? (batchCost / num(p.yieldQty)) + num(p.packaging) : 0;
+  return {ingredientCost:ingredientCost, laborCost:laborCost, batchCost:batchCost, perItem:perItem};
+}
+
+/* ============================== UI ============================== */
+var UNITS = ["lb","oz","g","kg","cup","tbsp","tsp","ml","L","each","box","pack","jar","bag"];
+var MM = {};
+
+function unitOptions(sel){
+  return UNITS.map(function(u){ return '<option value="'+u+'"'+(u===sel?" selected":"")+">"+u+"</option>"; }).join("");
+}
+function ingOptions(sel){
+  if(!state.ingredients.length) return '<option value="">(add an ingredient first)</option>';
+  return state.ingredients.map(function(i){ return '<option value="'+i.id+'"'+(i.id===sel?" selected":"")+">"+esc(i.name)+"</option>"; }).join("");
+}
+function prodOptions(sel){
+  if(!state.products.length) return '<option value="">(add a product first)</option>';
+  return state.products.map(function(p){ return '<option value="'+p.id+'"'+(p.id===sel?" selected":"")+">"+esc(p.name)+"</option>"; }).join("");
+}
+
+MM.showTab = function(name){
+  var tabs = document.querySelectorAll(".tab");
+  for(var i=0;i<tabs.length;i++) tabs[i].classList.remove("active");
+  document.getElementById("tab-"+name).classList.add("active");
+  var btns = document.querySelectorAll("#topnav button");
+  for(var j=0;j<btns.length;j++) btns[j].classList.toggle("active", btns[j].getAttribute("data-tab")===name);
+  window.scrollTo(0,0);
+};
+
+function render(){ renderCosting(); renderPricing(); renderEvents(); renderRankings(); renderHelp(); }
+
+/* ---------- Cost Builder ---------- */
+function renderCosting(){
+  var el = document.getElementById("tab-costing");
+  var h = "";
+  h += '<div class="card"><h2>1 · Ingredient library</h2>';
+  h += '<p class="hint">Enter what you actually pay: package price and package size. PriceMyBooth works out the cost per unit, so recipes price themselves. Quantities in recipes use the same unit you pick here.</p>';
+  h += '<table><tr><th>Ingredient</th><th class="num">Package price</th><th class="num">Package size</th><th>Unit</th><th class="num">Cost per unit</th><th></th></tr>';
+  state.ingredients.forEach(function(ing){
+    h += "<tr>"
+      + '<td><input type="text" value="'+esc(ing.name)+'" onchange="MM.ingSet(\''+ing.id+'\',\'name\',this.value)"></td>'
+      + '<td><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ing.pkgPrice+'" onchange="MM.ingSet(\''+ing.id+'\',\'pkgPrice\',this.value)"></td>'
+      + '<td><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ing.pkgSize+'" onchange="MM.ingSet(\''+ing.id+'\',\'pkgSize\',this.value)"></td>'
+      + '<td><select onchange="MM.ingSet(\''+ing.id+'\',\'unit\',this.value)">'+unitOptions(ing.unit)+"</select></td>"
+      + '<td class="num">'+(ing.pkgSize>0 ? money(ingCostPerUnit(ing))+"/"+esc(ing.unit) : '<span class="neg">set size</span>')+"</td>"
+      + '<td><button class="del-btn" title="Delete ingredient" onclick="MM.ingDel(\''+ing.id+'\')">✕</button></td></tr>';
+  });
+  if(!state.ingredients.length) h += '<tr><td colspan="6" class="hint">No ingredients yet — add your first one below.</td></tr>';
+  h += "</table>";
+  h += '<div class="row" style="margin-top:10px"><div><label>New ingredient name</label><input type="text" id="ni_name" placeholder="e.g. All-purpose flour"></div>'
+     + '<div><label>Package price $</label><input inputmode="decimal" type="number" id="ni_price" step="0.01" min="0" placeholder="5.99"></div>'
+     + '<div><label>Package size</label><input inputmode="decimal" type="number" id="ni_size" step="0.01" min="0" placeholder="5"></div>'
+     + '<div><label>Unit</label><select id="ni_unit">'+unitOptions("lb")+"</select></div></div>"
+     + '<p><button class="btn" onclick="MM.ingAdd()">+ Add ingredient</button></p></div>';
+
+  h += '<div class="card"><h2>2 · Products &amp; recipes</h2>';
+  h += '<p class="hint">One product = one batch recipe. Cost per item = (ingredients + your labor) ÷ items the batch makes, plus packaging per item. That is your true cost — the number most vendors guess at.</p>';
+  if(!state.products.length) h += '<p class="hint">No products yet — add one below.</p>';
+  state.products.forEach(function(p){
+    var c = productCost(p);
+    h += '<div class="card" style="background:#fcfefc"><h3><input type="text" style="font-size:16px;font-weight:600" value="'+esc(p.name)+'" onchange="MM.prodSet(\''+p.id+'\',\'name\',this.value)"></h3>';
+    h += '<table><tr><th>Ingredient</th><th class="num">Qty used (in its unit)</th><th class="num">Line cost</th><th></th></tr>';
+    (p.lines||[]).forEach(function(ln, idx){
+      var ing = ingById(ln.ingredientId);
+      var lc = ing ? num(ln.qty)*ingCostPerUnit(ing) : 0;
+      h += "<tr><td><select onchange=\"MM.lineSet('"+p.id+"',"+idx+",'ingredientId',this.value)\">"+ingOptions(ln.ingredientId)+"</select></td>"
+         + '<td><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ln.qty+'" onchange="MM.lineSet(\''+p.id+"\',"+idx+",'qty',this.value)\"></td>"
+         + '<td class="num">'+money(lc)+"</td>"
+         + '<td><button class="del-btn" onclick="MM.lineDel(\''+p.id+"\',"+idx+')">✕</button></td></tr>';
+    });
+    if(!(p.lines||[]).length) h += '<tr><td colspan="4" class="hint">No ingredients in this recipe yet.</td></tr>';
+    h += "</table>";
+    h += '<p><button class="btn small secondary" onclick="MM.lineAdd(\''+p.id+'\')">+ Add ingredient to recipe</button></p>';
+    h += '<div class="row">'
+       + '<div><label>Items per batch (yield)</label><input inputmode="decimal" type="number" step="1" min="0" value="'+p.yieldQty+'" onchange="MM.prodSet(\''+p.id+'\',\'yieldQty\',this.value)"></div>'
+       + '<div><label>Packaging cost per item $</label><input inputmode="decimal" type="number" step="0.01" min="0" value="'+p.packaging+'" onchange="MM.prodSet(\''+p.id+'\',\'packaging\',this.value)"></div>'
+       + '<div><label>Labor minutes per batch</label><input inputmode="decimal" type="number" step="1" min="0" value="'+p.laborMinutes+'" onchange="MM.prodSet(\''+p.id+'\',\'laborMinutes\',this.value)"></div>'
+       + '<div><label>Your labor rate $/hr</label><input inputmode="decimal" type="number" step="0.50" min="0" value="'+p.laborRate+'" onchange="MM.prodSet(\''+p.id+'\',\'laborRate\',this.value)"></div></div>';
+    h += '<div class="stat-grid">'
+       + '<div class="stat"><div class="k">Ingredients / batch</div><div class="v">'+money(c.ingredientCost)+'</div></div>'
+       + '<div class="stat"><div class="k">Labor / batch</div><div class="v">'+money(c.laborCost)+'</div></div>'
+       + '<div class="stat"><div class="k">Batch cost</div><div class="v">'+money(c.batchCost)+'</div></div>'
+       + '<div class="stat"><div class="k">True cost per item</div><div class="v big">'+money(c.perItem)+'</div></div></div>';
+    h += '<p style="margin-top:10px"><button class="btn small danger" onclick="MM.prodDel(\''+p.id+'\')">Delete product</button></p>';
+    h += "</div>";
+  });
+  h += '<div class="row"><div style="flex:2"><label>New product name</label><input type="text" id="np_name" placeholder="e.g. Blueberry Muffins — 4 pack"></div>'
+     + '<div><label>Items per batch</label><input inputmode="decimal" type="number" id="np_yield" step="1" min="1" value="12"></div></div>'
+     + '<p><button class="btn" onclick="MM.prodAdd()">+ Add product</button></p></div>';
+  el.innerHTML = h;
+}
+
+MM.ingAdd = function(){
+  var name = document.getElementById("ni_name").value.trim();
+  if(!name){ alert("Give the ingredient a name first."); return; }
+  state.ingredients.push({id:uid(), name:name, pkgPrice:num(document.getElementById("ni_price").value), pkgSize:num(document.getElementById("ni_size").value), unit:document.getElementById("ni_unit").value});
+  state.isDemo = false; save(); render();
+};
+MM.ingSet = function(id, field, v){
+  var ing = ingById(id); if(!ing) return;
+  ing[field] = (field==="name"||field==="unit") ? v : num(v);
+  save(); render();
+};
+MM.ingDel = function(id){
+  var used = state.products.some(function(p){ return (p.lines||[]).some(function(l){ return l.ingredientId===id; }); });
+  if(used && !confirm("This ingredient is used in a recipe. Delete it anyway? (Recipe lines using it will be removed.)")) return;
+  state.ingredients = state.ingredients.filter(function(i){ return i.id!==id; });
+  state.products.forEach(function(p){ p.lines = (p.lines||[]).filter(function(l){ return l.ingredientId!==id; }); });
+  save(); render();
+};
+MM.prodAdd = function(){
+  var name = document.getElementById("np_name").value.trim();
+  if(!name){ alert("Give the product a name first."); return; }
+  var y = Math.max(1, Math.round(num(document.getElementById("np_yield").value)) || 1);
+  state.products.push({id:uid(), name:name, yieldQty:y, packaging:0, laborMinutes:0, laborRate:15, marketPrice:0, lines:[]});
+  state.isDemo = false; save(); render();
+};
+MM.prodSet = function(id, field, v){
+  var p = prodById(id); if(!p) return;
+  p[field] = (field==="name") ? v : num(v);
+  save(); render();
+};
+MM.prodDel = function(id){
+  if(!confirm("Delete this product? Past event lines for it will stop counting in totals.")) return;
+  state.products = state.products.filter(function(p){ return p.id!==id; });
+  save(); render();
+};
+MM.lineAdd = function(pid){
+  var p = prodById(pid); if(!p) return;
+  if(!state.ingredients.length){ alert("Add an ingredient to the library first."); return; }
+  p.lines = p.lines||[]; p.lines.push({ingredientId:state.ingredients[0].id, qty:1});
+  save(); render();
+};
+MM.lineSet = function(pid, idx, field, v){
+  var p = prodById(pid); if(!p || !p.lines[idx]) return;
+  p.lines[idx][field] = (field==="ingredientId") ? v : num(v);
+  save(); render();
+};
+MM.lineDel = function(pid, idx){
+  var p = prodById(pid); if(!p) return;
+  p.lines.splice(idx,1); save(); render();
+};
+
+/* ---------- Price Setter ---------- */
+function renderPricing(){
+  var el = document.getElementById("tab-pricing");
+  var m = num(state.targetMargin); if(m<0.05) m=0.05; if(m>0.85) m=0.85;
+  var h = '<div class="card"><h2>Price Setter</h2>';
+  h += '<p class="hint">Margin is your cut of the final price (a 40% margin on a $5.00 item means $2.00 of it is gross profit). Drag the slider to your target margin — the recommended price rounds up to the nearest quarter so it looks natural on a market table sign.</p>';
+  h += '<div class="slider-wrap"><span>Target margin</span><input type="range" min="5" max="85" step="1" value="'+Math.round(m*100)+'" onchange="MM.marginSet(this.value)"><span class="big">'+Math.round(m*100)+'%</span></div>';
+  if(!state.products.length) h += '<p class="hint">Add a product in the Cost Builder first.</p>';
+  state.products.forEach(function(p){
+    var c = productCost(p).perItem;
+    var rec = roundUpQuarter(marginPrice(c, m));
+    var mk = num(p.marketPrice);
+    h += '<div class="card" style="background:#fcfefc"><h3>'+esc(p.name)+'</h3>';
+    h += '<div class="stat-grid">'
+       + '<div class="stat"><div class="k">True cost / item</div><div class="v">'+money(c)+'</div></div>'
+       + '<div class="stat"><div class="k">Price @ 30% margin</div><div class="v">'+money(marginPrice(c,0.30))+'</div></div>'
+       + '<div class="stat"><div class="k">Price @ 40% margin</div><div class="v">'+money(marginPrice(c,0.40))+'</div></div>'
+       + '<div class="stat"><div class="k">Price @ 50% margin</div><div class="v">'+money(marginPrice(c,0.50))+'</div></div>'
+       + '<div class="stat gold"><div class="k">Recommended @ '+Math.round(m*100)+'%</div><div class="v big">'+money(rec)+'</div></div></div>';
+    h += '<div class="row" style="margin-top:10px"><div><label>What the market charges (competitor price) $</label><input inputmode="decimal" type="number" step="0.01" min="0" value="'+(mk||"")+'" placeholder="e.g. 6.50" onchange="MM.marketSet(\''+p.id+'\',this.value)"></div></div>';
+    if(mk>0){
+      var diff = rec - mk;
+      if(diff > 0.009) h += '<p class="verdict">Your recommended price is <b>'+money(diff)+' above</b> the market price — hold it if your quality/story supports it, or trim toward '+money(mk)+' and watch your margin.</p>';
+      else if(diff < -0.009) h += '<p class="verdict pos">Your recommended price is <b>'+money(-diff)+' under</b> the market price — you have room to raise toward '+money(mk)+'.</p>';
+      else h += '<p class="verdict pos">Your recommended price matches the market price exactly.</p>';
+      var mAtMarket = mk>0 ? (mk-c)/mk : 0;
+      h += '<p class="verdict">At the market price of '+money(mk)+', your margin would be <b>'+pct(mAtMarket)+'</b> ('+money(mk-c)+' gross profit per item).</p>';
+    } else {
+      h += '<p class="verdict">Type what a similar vendor charges and PriceMyBooth will compare it against your recommended price and margin.</p>';
+    }
+    h += "</div>";
+  });
+  h += "</div>";
+  el.innerHTML = h;
+}
+MM.marginSet = function(v){ state.targetMargin = num(v)/100; save(); renderPricing(); };
+MM.marketSet = function(pid, v){ var p = prodById(pid); if(!p) return; p.marketPrice = num(v); save(); renderPricing(); };
+
+/* ---------- Event Ledger ---------- */
+function renderEvents(){
+  var el = document.getElementById("tab-events");
+  var h = '<div class="card"><h2>Event Ledger</h2>';
+  h += '<p class="hint">After every market or fair, log what you took and what sold. Take-home profit = revenue − the cost of what sold − booth, travel and other event costs − card-processing fees − sales tax owed. Card fees apply only to the share of sales paid by card, at the rate your processor charges (the standard Square rate is 2.9% — check yours). Sales tax owed is figured on your total sales at the rate you set for that market location, so set it before you rely on the take-home number. Unsold cost shows what went home with you (or into the compost) — the number that decides what to make less of next time.</p>';
+  h += '<div class="row"><div style="flex:2"><label>New event name</label><input type="text" id="ne_name" placeholder="e.g. Tulsa Farm &amp; Craft Market"></div>'
+     + '<div><label>Date</label><input type="date" id="ne_date"></div></div>'
+     + '<p><button class="btn" onclick="MM.evAdd()">+ Add event</button> <button class="btn secondary" onclick="window.print()">🖨 Print event summaries</button></p></div>';
+
+  var sorted = state.events.slice().sort(function(a,b){ return (b.date||"") < (a.date||"") ? -1 : 1; });
+  if(!sorted.length) h += '<div class="card"><p class="hint">No events logged yet.</p></div>';
+  sorted.forEach(function(ev){
+    var s = eventStats(ev);
+    h += '<div class="card"><h3><input type="text" style="font-size:16px;font-weight:600" value="'+esc(ev.name)+'" onchange="MM.evSet(\''+ev.id+'\',\'name\',this.value)"></h3>';
+    h += '<div class="row">'
+       + '<div><label>Date</label><input type="date" value="'+esc(ev.date||"")+'" onchange="MM.evSet(\''+ev.id+'\',\'date\',this.value)"></div>'
+       + '<div><label>Booth fee $</label><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ev.boothFee+'" onchange="MM.evSet(\''+ev.id+'\',\'boothFee\',this.value)"></div>'
+       + '<div><label>Travel cost $</label><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ev.travelCost+'" onchange="MM.evSet(\''+ev.id+'\',\'travelCost\',this.value)"></div>'
+       + '<div><label>Other costs $</label><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ev.otherCost+'" onchange="MM.evSet(\''+ev.id+'\',\'otherCost\',this.value)"></div></div>'
+    h += '<div class="row">'
+       + '<div><label>Card fee % (on card sales)</label><input inputmode="decimal" type="number" step="0.1" min="0" value="'+evField(ev,'cardRatePct')+'" onchange="MM.evSet(\''+ev.id+'\',\'cardRatePct\',this.value)"></div>'
+       + '<div><label>Sales paid by card %</label><input inputmode="decimal" type="number" step="1" min="0" max="100" value="'+evField(ev,'cardSharePct')+'" onchange="MM.evSet(\''+ev.id+'\',\'cardSharePct\',this.value)"></div>'
+       + '<div><label>Sales tax % owed on sales</label><input inputmode="decimal" type="number" step="0.01" min="0" value="'+evField(ev,'taxRatePct')+'" onchange="MM.evSet(\''+ev.id+'\',\'taxRatePct\',this.value)"></div></div>';
+    h += '<table style="margin-top:10px"><tr><th>Product</th><th class="num">Taken</th><th class="num">Sold</th><th class="num">Price charged $</th><th class="num">Revenue</th><th class="num">Sell-through</th><th></th></tr>';
+    (ev.lines||[]).forEach(function(ln, idx){
+      var t = num(ln.taken), sd = Math.min(num(ln.sold), t);
+      var rev = sd * num(ln.priceCharged);
+      var st = t>0 ? sd/t : 0;
+      h += "<tr><td><select onchange=\"MM.evLineSet('"+ev.id+"',"+idx+",'productId',this.value)\">"+prodOptions(ln.productId)+"</select></td>"
+         + '<td><input inputmode="decimal" type="number" step="1" min="0" value="'+ln.taken+'" onchange="MM.evLineSet(\''+ev.id+"\',"+idx+",'taken',this.value)\"></td>"
+         + '<td><input inputmode="decimal" type="number" step="1" min="0" value="'+ln.sold+'" onchange="MM.evLineSet(\''+ev.id+"\',"+idx+",'sold',this.value)\"></td>"
+         + '<td><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ln.priceCharged+'" onchange="MM.evLineSet(\''+ev.id+"\',"+idx+",'priceCharged',this.value)\"></td>"
+         + '<td class="num">'+money(rev)+"</td>"
+         + '<td class="num">'+(t>0?pct(st):"—")+"</td>"
+         + '<td><button class="del-btn" onclick="MM.evLineDel(\''+ev.id+"\',"+idx+')">✕</button></td></tr>';
+    });
+    if(!(ev.lines||[]).length) h += '<tr><td colspan="7" class="hint">No products on this event yet.</td></tr>';
+    h += "</table>";
+    h += '<p><button class="btn small secondary" onclick="MM.evLineAdd(\''+ev.id+'\')">+ Add product line</button></p>';
+    h += '<div class="stat-grid">'
+       + '<div class="stat"><div class="k">Revenue</div><div class="v">'+money(s.revenue)+'</div></div>'
+       + '<div class="stat"><div class="k">Cost of goods sold</div><div class="v">'+money(s.cogsSold)+'</div></div>'
+       + '<div class="stat"><div class="k">Event costs</div><div class="v">'+money(s.fees)+'</div></div>'
+       + '<div class="stat"><div class="k">Card fees</div><div class="v">-'+money(s.cardFees)+'</div></div>'
+       + '<div class="stat"><div class="k">Sales tax owed</div><div class="v">-'+money(s.taxOwed)+'</div></div>'
+       + '<div class="stat"><div class="k">Unsold cost</div><div class="v">'+money(s.unsoldCost)+'</div></div>'
+       + '<div class="stat"><div class="k">Sell-through</div><div class="v">'+pct(s.sellThrough)+'</div></div>'
+       + '<div class="stat"><div class="k">Take-home profit</div><div class="v '+(s.profit>=0?"pos":"neg")+'">'+money(s.profit)+'</div></div></div>';
+    h += '<p style="margin-top:10px"><button class="btn small danger" onclick="MM.evDel(\''+ev.id+'\')">Delete event</button></p>';
+    h += "</div>";
+  });
+  el.innerHTML = h;
+}
+var EV_DEFAULTS = {cardRatePct:2.9, cardSharePct:100, taxRatePct:0};
+function evField(ev, f){ var v = ev ? ev[f] : undefined; return (v === undefined || v === null || v === "") ? EV_DEFAULTS[f] : num(v); }
+function evById(id){ for(var i=0;i<state.events.length;i++) if(state.events[i].id===id) return state.events[i]; return null; }
+MM.evAdd = function(){
+  var name = document.getElementById("ne_name").value.trim();
+  if(!name){ alert("Give the event a name first."); return; }
+  var d = document.getElementById("ne_date").value;
+  state.events.push({id:uid(), name:name, date:d, boothFee:0, travelCost:0, otherCost:0, cardRatePct:EV_DEFAULTS.cardRatePct, cardSharePct:EV_DEFAULTS.cardSharePct, taxRatePct:EV_DEFAULTS.taxRatePct, lines:[]});
+  state.isDemo = false; save(); render();
+};
+MM.evSet = function(id, field, v){
+  var ev = evById(id); if(!ev) return;
+  ev[field] = (field==="name"||field==="date") ? v : num(v);
+  save(); render();
+};
+MM.evDel = function(id){
+  if(!confirm("Delete this event and its sales lines?")) return;
+  state.events = state.events.filter(function(e){ return e.id!==id; });
+  save(); render();
+};
+MM.evLineAdd = function(evid){
+  var ev = evById(evid); if(!ev) return;
+  if(!state.products.length){ alert("Add a product in the Cost Builder first."); return; }
+  var p = state.products[0];
+  var price = num(p.marketPrice) > 0 ? num(p.marketPrice) : roundUpQuarter(marginPrice(productCost(p).perItem, 0.40));
+  ev.lines = ev.lines||[]; ev.lines.push({productId:p.id, taken:0, sold:0, priceCharged:price});
+  save(); render();
+};
+MM.evLineSet = function(evid, idx, field, v){
+  var ev = evById(evid); if(!ev || !ev.lines[idx]) return;
+  ev.lines[idx][field] = (field==="productId") ? v : num(v);
+  save(); render();
+};
+MM.evLineDel = function(evid, idx){
+  var ev = evById(evid); if(!ev) return;
+  ev.lines.splice(idx,1); save(); render();
+};
+
+/* ---------- Rankings ---------- */
+function renderRankings(){
+  var el = document.getElementById("tab-rankings");
+  var ranks = productRankings();
+  var totRev=0, totProfit=0, totTaken=0, totSold=0;
+  ranks.forEach(function(r){ totRev+=r.revenue; totProfit+=r.profit; totTaken+=r.taken; totSold+=r.sold; });
+  var h = '<div class="card"><h2>Which products actually make money</h2>';
+  h += '<p class="hint">Ranked by gross profit (revenue − cost of what sold) across every event you have logged. Booth and travel costs are event-level, so they are not subtracted here — see the Event Ledger for full event profit.</p>';
+  if(!state.events.length || totTaken===0) h += '<p class="hint">Log an event with products taken and sold, and your ranking will appear here.</p>';
+  h += '<table><tr><th>#</th><th>Product</th><th class="num">Taken</th><th class="num">Sold</th><th class="num">Sell-through</th><th class="num">Revenue</th><th class="num">Gross profit</th></tr>';
+  ranks.forEach(function(r, i){
+    h += "<tr><td>"+(i+1)+'</td><td>'+esc(r.product.name)+(i===0 && r.profit>0 ? ' <span class="pill">top earner</span>' : "")+"</td>"
+       + '<td class="num">'+r.taken+'</td><td class="num">'+r.sold+'</td><td class="num">'+(r.taken>0?pct(r.sellThrough):"—")+"</td>"
+       + '<td class="num">'+money(r.revenue)+'</td><td class="num '+(r.profit>=0?"pos":"neg")+'"><b>'+money(r.profit)+"</b></td></tr>";
+  });
+  h += '<tr><td></td><td><b>All products</b></td><td class="num"><b>'+totTaken+'</b></td><td class="num"><b>'+totSold+'</b></td><td class="num"><b>'+(totTaken>0?pct(totSold/totTaken):"—")+'</b></td><td class="num"><b>'+money(totRev)+'</b></td><td class="num"><b>'+money(totProfit)+"</b></td></tr>";
+  h += "</table>";
+  h += '<div class="stat-grid"><div class="stat"><div class="k">Events logged</div><div class="v">'+state.events.length+'</div></div>'
+     + '<div class="stat"><div class="k">Total revenue</div><div class="v">'+money(totRev)+'</div></div>'
+     + '<div class="stat"><div class="k">Total gross profit</div><div class="v '+(totProfit>=0?"pos":"neg")+'">'+money(totProfit)+'</div></div></div>';
+  h += '<p><button class="btn secondary" onclick="window.print()">🖨 Print ranking</button></p></div>';
+  el.innerHTML = h;
+}
+
+/* ---------- Help & Backup ---------- */
+function renderHelp(){
+  var el = document.getElementById("tab-help");
+  var h = '<div class="card"><h2>How PriceMyBooth works</h2>'
+    + '<ul class="tight">'
+    + '<li><b>Cost Builder:</b> add your ingredients once (package price + size), then build each product\'s recipe. Cost per item includes ingredients, your labor, and packaging — the true cost most vendors underestimate.</li>'
+    + '<li><b>Price Setter:</b> slide to the profit margin you want and get a recommended price, side-by-side with 30/40/50% margin prices. Add what competitors charge to see whether you can raise or need to trim.</li>'
+    + '<li><b>Event Ledger:</b> after each market, enter what you took and what sold. You get take-home profit and sell-through per product — sell-through under ~70% usually means make less or drop the price late in the day; over ~95% means you could have charged more or brought more.</li>'
+    + '<li><b>True take-home:</b> the Event Ledger subtracts card-processing fees and sales tax before it calls a number profit. Set each event\'s card fee % (your processor\'s rate — 2.9% is Square\'s standard), the % of sales paid by card, and the sales tax % for that market\'s location. The fee and tax show as their own lines, so you can see exactly what the day cost you.</li>'
+    + '<li><b>Rankings:</b> across all events, which products earn their table space — and which ones just ride along.</li></ul>'
+    + '<h3>Good habits</h3><ul class="tight">'
+    + '<li>Update ingredient prices when they change — every recipe reprices automatically.</li>'
+    + '<li>Pay yourself in the numbers: set a real labor rate ($12–20/hr) even if you are the whole crew. A product that only "profits" with free labor is not profitable.</li>'
+    + '<li>Log the event the same day, while the counts are still on your tally sheet.</li></ul>'
+    + '<h3>Your data</h3>'
+    + '<p class="hint">Everything lives in this browser\'s local storage on this device — no account, no internet, no subscription. It also means clearing your browser data erases it, so export a backup now and then.</p>'
+    + '<p><button class="btn" onclick="MM.exportData()">⬇ Export backup (JSON)</button> '
+    + '<label class="btn secondary" style="display:inline-block;cursor:pointer">⬆ Import backup <input type="file" accept=".json,application/json" style="display:none" onchange="MM.importData(this)"></label></p>'
+    + '<h3>Get help</h3>'
+    + '<p class="hint">PriceMyBooth v' + APP_VERSION + '</p>'
+    + '<p><a id="helpEmailBtn" class="btn" style="display:inline-block;text-decoration:none" href="mailto:whitewolfbackoffice@gmail.com?subject=PriceMyBooth%20help%20%E2%80%94%20v1.1&amp;body=Tell%20us%20what%20you%20were%20trying%20to%20do%20and%20what%20happened%3A%0A%0A">✉️ Email us</a></p>'
+    + '<h3>Start fresh</h3>'
+    + '<p class="hint">'+(state.isDemo ? "This app is showing sample demo data (jam, honey, microgreens). " : "")+'Two different cleanups — pick the right one:</p>'
+    + '<p><button class="btn secondary" onclick="MM.clearDemoOnly()">Clear demo data only</button> '
+    + '<button class="btn danger" onclick="MM.clearAll()">Erase everything</button> '
+    + '<button class="btn secondary" onclick="MM.loadDemo()">Reload demo data</button></p>'
+    + '<p class="hint"><b>Clear demo data only</b> removes the sample ingredients, products, and the sample market event — your own records and your target margin stay. <b>Erase everything</b> wipes all ingredients, products, and events and starts blank.</p>'
+    + "</div>";
+  el.innerHTML = h + '<div id="legalSection"></div>';
+  syncHelpEmail();
+}
+function syncHelpEmail(){
+  var a = document.getElementById("helpEmailBtn"); if(!a) return;
+  a.href = "mailto:whitewolfbackoffice@gmail.com?subject=" + encodeURIComponent("PriceMyBooth help \u2014 v" + APP_VERSION) +
+    "&body=" + encodeURIComponent("Tell us what you were trying to do and what happened:\n\n");
+}
+MM.exportData = function(){
+  var blob = new Blob([JSON.stringify(state, null, 2)], {type:"application/json"});
+  var a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "marketmaker-backup.json";
+  document.body.appendChild(a); a.click();
+  setTimeout(function(){ URL.revokeObjectURL(a.href); a.remove(); }, 400);
+};
+MM.importData = function(input){
+  var f = input.files && input.files[0]; if(!f) return;
+  var reader = new FileReader();
+  reader.onload = function(){
+    try{
+      var data = JSON.parse(reader.result);
+      if(!data || !Array.isArray(data.ingredients) || !Array.isArray(data.products) || !Array.isArray(data.events)) throw new Error("shape");
+      state = data; if(typeof state.targetMargin !== "number") state.targetMargin = 0.40;
+      (state.events||[]).forEach(function(ev){ ["cardRatePct","cardSharePct","taxRatePct"].forEach(function(f){ if(ev[f] === undefined || ev[f] === null) ev[f] = EV_DEFAULTS[f]; }); });
+      save(); render(); alert("Backup imported.");
+    }catch(e){ alert("That file could not be imported — it does not look like a PriceMyBooth backup. Nothing was changed."); }
+    input.value = "";
+  };
+  reader.readAsText(f);
+};
+MM.clearAll = function(){
+  if(!confirm("Erase EVERYTHING — all ingredients, products, and events — and start blank? This cannot be undone. Export a backup first if you might want it back.")) return;
+  state = {ingredients:[], products:[], events:[], targetMargin:0.40, isDemo:false};
+  save(); render();
+};
+MM.clearDemoOnly = function(){
+  var demo = demoData();
+  var ingIds = {}, prodIds = {}, evIds = {};
+  demo.ingredients.forEach(function(x){ ingIds[x.id] = 1; });
+  demo.products.forEach(function(x){ prodIds[x.id] = 1; });
+  demo.events.forEach(function(x){ evIds[x.id] = 1; });
+  var n = state.ingredients.filter(function(x){ return ingIds[x.id]; }).length
+        + state.products.filter(function(x){ return prodIds[x.id]; }).length
+        + state.events.filter(function(x){ return evIds[x.id]; }).length;
+  if(!n){ alert("No demo data found — nothing was removed. Every record in the app is your own."); return; }
+  if(!confirm("Clear the demo data only (" + n + " sample record" + (n === 1 ? "" : "s") + " — the sample ingredients, products, and market event)? Your own records stay.")) return;
+  state.ingredients = state.ingredients.filter(function(x){ return !ingIds[x.id]; });
+  state.products = state.products.filter(function(x){ return !prodIds[x.id]; });
+  state.events = state.events.filter(function(x){ return !evIds[x.id]; });
+  state.isDemo = false;
+  save(); render();
+};
+MM.loadDemo = function(){
+  if(!confirm("Replace all current data with the demo data?")) return;
+  state = demoData(); save(); render();
+};
+
+/* ============================== INIT ============================== */
+if(typeof document !== "undefined"){
+  load();
+  render();
+}
+
+function marginPrice(cost, m){ if(m>=1) return 0; if(m<0) m=0; return cost/(1-m); }
+function roundUpQuarter(v){ return Math.ceil(v*4)/4; }
+
+function eventStats(ev){
+  var revenue=0, cogsSold=0, unsoldCost=0, taken=0, sold=0;
+  (ev.lines||[]).forEach(function(ln){
+    var p = prodById(ln.productId); if(!p) return;
+    var c = productCost(p).perItem;
+    var t = num(ln.taken), s = Math.min(num(ln.sold), num(ln.taken));
+    taken += t; sold += s;
+    revenue += s * num(ln.priceCharged);
+    cogsSold += s * c;
+    unsoldCost += Math.max(0, t - s) * c;
+  });
+  var fees = num(ev.boothFee) + num(ev.travelCost) + num(ev.otherCost);
+  var cardRate = evField(ev, "cardRatePct"), cardShare = evField(ev, "cardSharePct"), taxRate = evField(ev, "taxRatePct");
+  var cardSales = revenue * (cardShare/100);
+  var cardFees = cardSales * (cardRate/100);
+  var taxOwed = revenue * (taxRate/100);
+  var grossProfit = revenue - cogsSold - fees;
+  var profit = grossProfit - cardFees - taxOwed;
+  var sellThrough = taken>0 ? sold/taken : 0;
+  return {revenue:revenue, cogsSold:cogsSold, unsoldCost:unsoldCost, fees:fees, cardRatePct:cardRate, cardSharePct:cardShare, taxRatePct:taxRate, cardSales:cardSales, cardFees:cardFees, taxOwed:taxOwed, grossProfit:grossProfit, profit:profit, taken:taken, sold:sold, sellThrough:sellThrough};
+}
+
+function productRankings(){
+  var map = {};
+  state.products.forEach(function(p){ map[p.id] = {product:p, taken:0, sold:0, revenue:0, cogs:0}; });
+  state.events.forEach(function(ev){
+    (ev.lines||[]).forEach(function(ln){
+      var r = map[ln.productId]; if(!r) return;
+      var c = productCost(r.product).perItem;
+      var t = num(ln.taken), s = Math.min(num(ln.sold), num(ln.taken));
+      r.taken += t; r.sold += s; r.revenue += s*num(ln.priceCharged); r.cogs += s*c;
+    });
+  });
+  var arr = Object.keys(map).map(function(k){ var r = map[k]; r.profit = r.revenue - r.cogs; r.sellThrough = r.taken>0 ? r.sold/r.taken : 0; return r; });
+  arr.sort(function(a,b){ return b.profit - a.profit; });
+  return arr;
+}
+
+/* ================= Legal — Terms of Use acceptance (catalog pattern v1.0) ================= */
+var TERMS_VERSION = "1.0";
+var LEGAL_APP_NAME = "PriceMyBooth";
+var LEGAL_HAS_DISCLAIMER = true;
+var LEGAL_TERMS_HTML = "<h3>Terms of Use \u2014 White Wolf Digital Apps</h3><p><b>Version 1.0 (DRAFT \u2014 pending attorney review)</b></p><p><b>Seller: White Wolf Tree Service LLC, selling digital products under the name \"White Wolf Digital\"</b></p><p><b>Contact: whitewolfbackoffice@gmail.com</b></p><h4>1. What you're buying</h4><p>Our apps (including ForgeFit AI, ForgeKitchen, TreeBid Pro, SnowBid,</p><p>WashPrice Pro, RoofSquares, JobProfit Tracker, PastureLedger, and the other</p><p>titles sold under White Wolf Digital) are single-file software tools. When</p><p>you buy one, you are buying a <b>license to use the file</b>, not ownership of</p><p>the software itself.</p><h4>2. Your license</h4><ul><li>You may use the app for your own personal or business work.</li><li>You may open it on your own devices (phone, tablet, computer) and move your</li></ul><p>  own data between them using the app's built-in backup/export tools.</p><ul><li>You may <b>not</b> resell, redistribute, give away, upload, or share the app</li></ul><p>  file (or a copy of it) with anyone else \u2014 including posting it online,</p><p>  bundling it with other products, or selling access to it.</p><ul><li>You may <b>not</b> claim the app as your own work, remove its branding or</li></ul><p>  notices, or use it to build a competing product for resale.</p><ul><li>One purchase = one buyer. A business purchase covers the buyer and their</li></ul><p>  own employees using it for that business's work; it does not cover other</p><p>  businesses.</p><h4>3. Your data stays yours \u2014 and stays on your device</h4><ul><li>The current versions of our apps run <b>entirely on your device</b>. They have</li></ul><p>  no accounts, no sign-in, no analytics, and they collect, transmit, and store</p><p>  <b>none</b> of your information on any server. We never see your data.</p><ul><li>Your records are stored in your browser/app storage on your device. **You</li></ul><p>  are responsible for backing them up** using the app's export tools. If you</p><p>  clear your browser data, lose your device, or uninstall the app, your</p><p>  records may be permanently lost, and we cannot recover them \u2014 we never had</p><p>  a copy.</p><ul><li>Files you export (backups, quotes, PDFs) are under your control. Where you</li></ul><p>  store or send them is up to you.</p><h4>4. Estimates are tools, not guarantees</h4><p>Every number our apps produce \u2014 bids, prices, costs, calorie targets,</p><p>projections, schedules, totals \u2014 is an **estimate generated from the</p><p>information you enter and the settings you choose**. Outputs are aids for</p><p>your own judgment, not guarantees of price, profit, outcome, or result. You</p><p>are responsible for checking any output before relying on it (see also the</p><p>disclaimer that applies to your app: Health Disclaimer for fitness/nutrition</p><p>apps, Estimator Disclaimer for contractor tools). If an input is wrong, the</p><p>output will be wrong.</p><h4>5. Acceptable use</h4><p>Don't use the apps to break the law, infringe anyone's rights, or</p><p>misrepresent quotes, invoices, or records to your own customers. For the</p><p>fitness apps, the guardrails in the app (healthy-rate limits, calorie floor)</p><p>are part of the product \u2014 don't treat the app as a way around them.</p><h4>6. Provided \"as is\"</h4><p>The apps are provided **\"as is\" and \"as available,\" without warranties of</p><p>any kind**, express or implied \u2014 including merchantability, fitness for a</p><p>particular purpose, accuracy of calculations, and uninterrupted or</p><p>error-free operation \u2014 to the maximum extent allowed by law. Software has</p><p>bugs; browsers change; we work to fix problems but do not promise any app is</p><p>error-free or will work on every device or browser forever.</p><h4>7. Limitation of liability</h4><p>To the maximum extent allowed by law:</p><ul><li>We are **not liable for indirect, incidental, special, or consequential</li></ul><p>  damages** \u2014 including lost profits, lost or mispriced jobs, lost data, or</p><p>  business interruption \u2014 arising from use of the apps.</p><ul><li>Our total liability for any claim connected to an app is limited to the</li></ul><p>  <b>amount you paid for that app</b>.</p><ul><li>Nothing in these terms limits liability that cannot legally be limited.</li></ul><h4>8. Refunds</h4><p>Refunds are handled **by the storefront you bought from, under that</p><p>storefront's policy** \u2014 Gumroad's refund policy for Gumroad purchases, and</p><p>Google Play's refund policy for Play purchases. These terms do not add to,</p><p>replace, or override the storefront's refund rules. If a file is defective</p><p>and won't open, contact us at whitewolfbackoffice@gmail.com and we'll fix or</p><p>replace the file.</p><h4>9. Updates and changes to these terms</h4><ul><li>We may release updated versions of an app. Updates may add, change, or</li></ul><p>  remove features.</p><ul><li>We may update these terms. The version you agreed to is recorded in the</li></ul><p>  app (version number and date) at first-run acceptance. If terms change,</p><p>  the app may ask you to accept the new version once on next open. Updated</p><p>  terms apply going forward, not retroactively.</p><ul><li>If you don't agree to an updated version of the terms, stop using the app.</li></ul><h4>10. Governing law</h4><p>These terms are governed by the laws of the <b>State of Oklahoma</b>, USA.</p><p>(Attorney to confirm governing law and venue before publication.)</p><h4>11. Contact</h4><p>White Wolf Tree Service LLC (White Wolf Digital) \u2014</p><p>whitewolfbackoffice@gmail.com.</p><h4>CONNECTED FEATURES \u2014 takes effect only when these features ship</h4><p>*The sections below apply only to future connected features (device sync via</p><p>Health Connect, AI voice logging, and the AI Goal Preview in ForgeFit). They</p><p>do not apply to the current offline versions, which never transmit data.*</p><ul><li><b>Opt-in only.</b> Connected features are off by default. Each one asks for</li></ul><p>  your separate, explicit consent \u2014 on its own consent screen, in plain</p><p>  language \u2014 before anything leaves your device. Declining never disables</p><p>  the app's offline features.</p><ul><li><b>What gets sent.</b> Only what the consent screen names, only when you use</li></ul><p>  the feature: for example, a meal description (text, or audio only if cloud</p><p>  transcription is on) for AI voice logging, or the single photo you choose</p><p>  for an AI Goal Preview.</p><ul><li><b>No retention by us.</b> Our relay service passes your request to the named</li></ul><p>  AI provider and keeps nothing \u2014 no copies of your photos, audio,</p><p>  transcripts, or entries are stored on our servers. Provider handling is</p><p>  described on the consent screen and in the Privacy Policy.</p><ul><li><b>Health data stays on the device.</b> Device sync (Health Connect) reads</li></ul><p>  your health data on your phone and stores it in the app on your phone. It</p><p>  is not uploaded to us.</p><ul><li><b>Allowances.</b> Some connected features run on third-party AI services we</li></ul><p>  pay for per use, so they may include a monthly allowance described in the</p><p>  app (for example, a set number of AI previews or voice entries per month),</p><p>  with optional additional credits. Allowances and pricing will be shown in</p><p>  the app before you use the feature; they are not a subscription unless the</p><p>  app says so in plain words.</p><ul><li><b>Permissions.</b> Connected features may request device permissions (such</li></ul><p>  as Health Connect access or the microphone) at the moment you first use</p><p>  them. You can revoke permissions any time in your device settings; the</p><p>  related feature will simply stop working.</p>";
+var LEGAL_DISCLAIMER_HTML = "<h3>Estimator Disclaimer \u2014 Contractor &amp; Trade Tools</h3><p>**Applies to: TreeBid Pro, SnowBid, WashPrice Pro, RoofSquares, JobProfit</p><p>Tracker, FieldForms Toolkit, PaintPro, FenceDeck, PriceMyBooth, and the other</p><p>estimating/pricing tools sold under White Wolf Digital \u2014 including bundles</p><p>that contain them.**</p><h4>Estimating aids, not finished quotes</h4><ul><li>These apps are <b>estimating and record-keeping aids</b>. Every bid, price,</li></ul><p>  cost, measurement, and total they produce is an **estimate based on the</p><p>  information and rates you enter**.</p><ul><li>**You \u2014 the business owner \u2014 are responsible for verifying everything</li></ul><p>  before you quote a customer:** measurements and quantities, site</p><p>  conditions, your current material and labor costs, your rates and margins,</p><p>  taxes, permit and license requirements, disposal rules, and any contract</p><p>  terms.</p><ul><li>Default rates, presets, and sample data included in the apps are starting</li></ul><p>  points only. They are not market prices, not industry standards, and not</p><p>  a recommendation of what you should charge.</p><ul><li>A saved quote keeps the prices in effect when you created it (price</li></ul><p>  snapshot). Changing your presets later does not change saved quotes \u2014</p><p>  and a saved quote is still your responsibility to review before sending.</p><h4>Specific tools</h4><ul><li><b>TreeBid Pro:</b> tree work is dangerous and site-specific. Difficulty</li></ul><p>  factors and presets cannot see the actual tree, lean, rot, targets, or</p><p>  access. Inspect every job in person before final pricing. The \"Invoice</p><p>  with Wave\" feature is an open-and-paste handoff \u2014 TreeBid does not</p><p>  connect to Wave, and the invoice you send from Wave is yours.</p><ul><li><b>RoofSquares / measurement tools:</b> confirm roof measurements and pitch</li></ul><p>  in person or by your usual method before ordering materials.</p><ul><li><b>SnowBid / seasonal tools:</b> route times, snowfall amounts, and service</li></ul><p>  pricing vary by storm and site; seasonal contracts are your agreement</p><p>  with your customer, on your terms.</p><ul><li><b>JobProfit Tracker:</b> profit figures depend on the costs you enter.</li></ul><p>  The app is not accounting or tax software and does not replace your</p><p>  bookkeeper or accountant.</p><h4>Bottom line</h4><p>If an output and your judgment disagree, trust your judgment \u2014 then fix the</p><p>input. We are not responsible for jobs won, lost, or mispriced based on app</p><p>outputs, within the limits of the Terms of Use.</p>";
+(function(){
+  var lst = document.createElement("style");
+  lst.textContent = "@media print{ #legalOverlay{ display:none !important; } }";
+  document.head.appendChild(lst);
+})();
+function sanitizeLegal(v){
+  if(!v || typeof v !== "object") return null;
+  if(typeof v.termsVersion !== "string" || typeof v.acceptedDate !== "string") return null;
+  return { termsVersion: v.termsVersion.slice(0, 10), acceptedDate: v.acceptedDate.slice(0, 40), disclaimerShown: !!v.disclaimerShown };
+}
+function legalRecord(){
+  try{ var s = state; return (s && s.legal) ? sanitizeLegal(s.legal) : null; }catch(e){ return null; }
+}
+function legalVersionCmp(a, b){
+  var pa = String(a).split("."), pb = String(b).split(".");
+  for(var i = 0; i < 3; i++){ var d = (parseInt(pa[i], 10) || 0) - (parseInt(pb[i], 10) || 0); if(d) return d; }
+  return 0;
+}
+function legalAcceptLine(){
+  var rec = legalRecord();
+  if(rec && rec.acceptedDate) return "You agreed to Terms v" + rec.termsVersion + " on " + rec.acceptedDate.slice(0, 10) + ".";
+  return "No Terms acceptance is recorded on this device yet \u2014 the current Terms will be shown for your agreement.";
+}
+function legalSectionHTML(){
+  var h = '<div style="border-top:2px solid rgba(127,127,127,.35);margin-top:20px;padding-top:14px;">'
+    + '<h2>Legal</h2>'
+    + '<p>' + legalAcceptLine() + '</p>'
+    + '<h3>Terms of Use (v' + TERMS_VERSION + ')</h3>'
+    + '<div style="max-height:340px;overflow-y:auto;border:1px solid rgba(127,127,127,.4);border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.55;">' + LEGAL_TERMS_HTML + '</div>';
+  if(LEGAL_HAS_DISCLAIMER){
+    h += '<h3>Estimator Disclaimer</h3>'
+      + '<div style="max-height:260px;overflow-y:auto;border:1px solid rgba(127,127,127,.4);border-radius:8px;padding:10px 14px;font-size:14px;line-height:1.55;">' + LEGAL_DISCLAIMER_HTML + '</div>';
+  }
+  h += '<h3>Privacy</h3>'
+    + '<p>This app collects no data. It has no accounts, no sign-in, no analytics, and no server \u2014 everything you enter is stored only on this device, in this browser\u2019s storage, and nothing is transmitted anywhere. Files you export (backups, quotes, prints) are under your control. You are responsible for backing up your records with the app\u2019s export tools.</p>'
+    + '<p>Sold by White Wolf Tree Service LLC (White Wolf Digital) \u2014 whitewolfbackoffice@gmail.com</p>'
+    + '</div>';
+  return h;
+}
+function legalFillSection(){
+  var el = document.getElementById("legalSection");
+  if(!el) return;
+  var sig = legalAcceptLine();
+  if(el.getAttribute("data-legal-filled") === sig) return;
+  el.innerHTML = legalSectionHTML(); el.setAttribute("data-legal-filled", sig);
+}
+function legalRefreshSection(){
+  var el = document.getElementById("legalSection");
+  if(el){ el.innerHTML = legalSectionHTML(); el.setAttribute("data-legal-filled", legalAcceptLine()); }
+}
+function legalShowOverlay(isUpdate){
+  if(document.getElementById("legalOverlay")) return;
+  var ov = document.createElement("div");
+  ov.id = "legalOverlay";
+  ov.setAttribute("style", "position:fixed;inset:0;z-index:99999;background:rgba(8,10,14,.74);overflow-y:auto;padding:20px 12px;display:flex;align-items:flex-start;justify-content:center;");
+  var discBtn = LEGAL_HAS_DISCLAIMER ? '<button type="button" id="legalReadDisc" style="min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid #9aa4b2;background:#ffffff;color:#1c2733;font-size:15px;cursor:pointer;">Read the Estimator Disclaimer</button>' : '';
+  var checkLabel = LEGAL_HAS_DISCLAIMER ? "I have read the disclaimer and I agree to the Terms of Use" : "I have read and I agree to the Terms of Use";
+  ov.innerHTML = '<div style="background:#ffffff;color:#1c2733;max-width:560px;width:100%;border-radius:14px;padding:22px 20px;box-shadow:0 18px 50px rgba(0,0,0,.45);font-size:15px;line-height:1.55;">'
+    + '<h2 style="margin:0 0 6px;font-size:21px;">' + LEGAL_APP_NAME + ' \u2014 Terms of Use</h2>'
+    + (isUpdate ? '<p style="background:#fdf3d7;border:1px solid #e4cf8a;border-radius:8px;padding:8px 10px;"><b>Our terms were updated (v' + TERMS_VERSION + ').</b></p>' : '')
+    + '<p style="font-size:16px;"><b>Your data stays on your device.</b><br><b>Estimates are aids, not guarantees.</b><br><b>You\'re responsible for checking outputs before you rely on them.</b></p>'
+    + '<p>The full Terms' + (LEGAL_HAS_DISCLAIMER ? ' and Disclaimer are' : ' are') + ' one tap away, now and any time in Settings \u2192 Legal.</p>'
+    + '<div id="legalReader" style="display:none;max-height:44vh;overflow-y:auto;border:1px solid #d5dbe3;border-radius:10px;padding:10px 14px;margin:10px 0;font-size:14px;"></div>'
+    + '<p style="display:flex;gap:8px;flex-wrap:wrap;"><button type="button" id="legalReadTerms" style="min-height:44px;padding:10px 14px;border-radius:10px;border:1px solid #9aa4b2;background:#ffffff;color:#1c2733;font-size:15px;cursor:pointer;">Read the full Terms</button>' + discBtn + '</p>'
+    + '<label style="display:flex;gap:10px;align-items:flex-start;margin:12px 0;cursor:pointer;"><input type="checkbox" id="legalCheck" style="width:22px;height:22px;min-width:22px;margin-top:1px;cursor:pointer;"><span>' + checkLabel + '</span></label>'
+    + '<button type="button" id="legalAgree" disabled style="min-height:52px;width:100%;border:0;border-radius:10px;background:#1f5fa8;color:#ffffff;font-size:17px;font-weight:700;cursor:pointer;opacity:.55;">I Agree</button>'
+    + '<p style="font-size:13px;color:#5a6675;margin-bottom:0;">Your records stay loaded behind this screen and are never deleted or locked, whether or not you agree now.</p>'
+    + '</div>';
+  document.body.appendChild(ov);
+  var reader = ov.querySelector("#legalReader");
+  var showing = "";
+  function toggleReader(kind){
+    if(showing === kind){ reader.style.display = "none"; showing = ""; return; }
+    reader.innerHTML = kind === "terms" ? LEGAL_TERMS_HTML : LEGAL_DISCLAIMER_HTML;
+    reader.style.display = "block"; showing = kind;
+    reader.scrollTop = 0;
+  }
+  ov.querySelector("#legalReadTerms").addEventListener("click", function(){ toggleReader("terms"); });
+  var db = ov.querySelector("#legalReadDisc");
+  if(db) db.addEventListener("click", function(){ toggleReader("disc"); });
+  var legalChk = ov.querySelector("#legalCheck");
+  var legalAgreeBtn = ov.querySelector("#legalAgree");
+  legalChk.addEventListener("change", function(){ legalAgreeBtn.disabled = !legalChk.checked; legalAgreeBtn.style.opacity = legalChk.checked ? "1" : ".55"; });
+  legalAgreeBtn.addEventListener("click", function(){
+    if(!legalChk.checked) return;
+    try{ state.legal = { termsVersion: TERMS_VERSION, acceptedDate: new Date().toISOString(), disclaimerShown: LEGAL_HAS_DISCLAIMER }; save(); }catch(e){}
+    if(ov.parentNode) ov.parentNode.removeChild(ov);
+    legalRefreshSection();
+  });
+}
+function legalInit(){
+  legalFillSection();
+  var rec = legalRecord();
+  if(rec && legalVersionCmp(rec.termsVersion, TERMS_VERSION) >= 0) return;
+  legalShowOverlay(!!rec);
+}
+if(typeof MutationObserver !== "undefined"){
+  var legalObs = new MutationObserver(function(){ legalFillSection(); });
+  legalObs.observe(document.documentElement, { childList: true, subtree: true });
+}
+if(document.readyState === "loading") document.addEventListener("DOMContentLoaded", function(){ setTimeout(legalInit, 30); });
+else setTimeout(legalInit, 30);
+
+</script>
+<script>
+/* ============================================================================
+   SHARED VOICE DICTATION LAYER — "vv" snippet v1.0 (2026-10-29)
+   Governing standard: QA-STANDARD.md §9a (mic dictation on every data-entry
+   field). Built once, dropped into every catalog app verbatim. Do not fork
+   per app — fix here and re-drop.
+
+   What it does:
+   - Adds a >=48px mic button beside every text input, number input, and
+     textarea (an <input> with no type attribute counts as text). Selects,
+     checkboxes, radios, file/date/tel/email inputs are NOT wired — they keep
+     their native pickers/keyboards (per voice-retrofit-plan.md counting).
+   - Tap the mic -> Web Speech API dictation into that field, exactly as if
+     typed. Interim words show live in the field; nothing auto-submits.
+   - Number fields: spoken numbers are converted ("sixty five" -> 65,
+     "two point five" -> 2.5, "1,200" -> 1200). If the words can't be read as
+     a number, the field is left untouched and the user is told plainly.
+   - After a successful dictation the field receives real bubbling "input"
+     and "change" events, so the host app's own handlers fire exactly as if
+     the user typed.
+   - Fields added later (re-renders, add-row buttons) are wired automatically
+     via MutationObserver.
+   - No SpeechRecognition (Firefox, file:// copies in most browsers, denied
+     permission): the mic shows the honest note "Voice isn't available on
+     this device/browser — typing works as always" and typing is never
+     blocked, hidden, or degraded.
+   - Failed/empty recognition announces "Didn't catch that — try again or
+     type it" and restores the field's previous value.
+
+   Wiring (see README.md in this folder): paste this whole IIFE in a <script>
+   block just before </body>. It injects its own styles (#vv-style) — no
+   other changes needed. It never touches storage, prices, or app state.
+   ============================================================================ */
+(function () {
+  "use strict";
+  if (window.__vvDictation) return; // drop-in twice = wire once
+  window.__vvDictation = "1.0";
+
+  var SR = window.SpeechRecognition || window.webkitSpeechRecognition || null;
+  var FALLBACK_MSG = "Voice isn't available on this device/browser — typing works as always";
+  var MISSED_MSG = "Didn't catch that — try again or type it";
+  var BLOCKED_MSG = "Microphone is blocked — typing works as always. Check the browser's mic permission if you want voice.";
+
+  /* ---- styles (self-injected; dictation-snippet.css holds the same rules) ---- */
+  var CSS = [
+    ".vv-wrap{display:flex;gap:6px;align-items:flex-start}",
+    ".vv-wrap>input,.vv-wrap>textarea{flex:1 1 0;min-width:0}",
+    ".vv-mic{flex:0 0 auto;width:48px;min-width:48px;height:48px;border-radius:8px;border:1px solid #b9c2ba;background:#fff;font-size:20px;line-height:1;cursor:pointer;display:flex;align-items:center;justify-content:center;padding:0;-webkit-tap-highlight-color:transparent}",
+    ".vv-mic:active{transform:scale(.96)}",
+    ".vv-mic.vv-live{background:#b3372e;border-color:#b3372e;animation:vvpulse 1s ease-in-out infinite}",
+    "@keyframes vvpulse{0%,100%{opacity:1}50%{opacity:.5}}",
+    ".vv-status{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);max-width:min(92vw,480px);background:#1c2420;color:#fff;padding:10px 14px;border-radius:9px;font-size:14px;line-height:1.35;z-index:99999;box-shadow:0 4px 18px rgba(0,0,0,.25);display:none;text-align:center;pointer-events:none}",
+    ".vv-status.vv-show{display:block}",
+    "@media print{.vv-mic{display:none!important}.vv-status{display:none!important}}"
+  ].join("\n");
+  if (!document.getElementById("vv-style")) {
+    var st = document.createElement("style");
+    st.id = "vv-style"; st.textContent = CSS;
+    (document.head || document.documentElement).appendChild(st);
+  }
+
+  /* ---- status announcements ---- */
+  var statusEl = null, statusTimer = null;
+  function say(msg, ms) {
+    if (!statusEl) {
+      statusEl = document.createElement("div");
+      statusEl.className = "vv-status"; statusEl.setAttribute("role", "status");
+      statusEl.setAttribute("aria-live", "polite");
+      document.body.appendChild(statusEl);
+    }
+    statusEl.textContent = msg;
+    statusEl.classList.add("vv-show");
+    if (statusTimer) clearTimeout(statusTimer);
+    statusTimer = setTimeout(function () { statusEl.classList.remove("vv-show"); }, ms || 5000);
+  }
+
+  /* ---- spoken-number conversion ---- */
+  var ONES = { zero: 0, one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19 };
+  var TENS = { twenty: 20, thirty: 30, forty: 40, fifty: 50, sixty: 60, seventy: 70, eighty: 80, ninety: 90 };
+  function wordsToNumber(s) {
+    var words = s.split(/[\s-]+/), total = 0, current = 0, seen = false, decimal = null, decPlace = 0.1, neg = false;
+    for (var i = 0; i < words.length; i++) {
+      var w = words[i];
+      if (!w || w === "and") continue;
+      if (w === "minus" || w === "negative") { neg = true; continue; }
+      if (w === "point") { decimal = true; continue; }
+      if (decimal) {
+        if (ONES.hasOwnProperty(w) && ONES[w] < 10) { if (decimal === true) decimal = 0; decimal += ONES[w] * decPlace; decPlace /= 10; seen = true; }
+        continue;
+      }
+      if (ONES.hasOwnProperty(w)) { current += ONES[w]; seen = true; }
+      else if (TENS.hasOwnProperty(w)) { current += TENS[w]; seen = true; }
+      else if (w === "hundred") { current = (current || 1) * 100; seen = true; }
+      else if (w === "thousand") { total += (current || 1) * 1000; current = 0; seen = true; }
+      else if (w === "million") { total += (current || 1) * 1000000; current = 0; seen = true; }
+      else if (w === "a" || w === "an") { /* filler before hundred/thousand */ }
+      /* any other word (dollars, feet, hours…) is ignored filler */
+    }
+    if (!seen) return null;
+    var n = total + current + (decimal ? decimal : 0);
+    return neg ? -n : n;
+  }
+  function parseSpokenNumber(raw) {
+    if (!raw) return null;
+    var s = String(raw).toLowerCase().replace(/\$/g, " ").replace(/\s+/g, " ").trim();
+    s = s.replace(/(\d),(?=\d)/g, "$1").replace(/,/g, " "); // 1,200 -> 1200
+    var m = s.match(/-?\d+(?:\.\d+)?/);
+    if (m) { var n = parseFloat(m[0]); if (isFinite(n)) return n; }
+    return wordsToNumber(s);
+  }
+
+  /* ---- field helpers ---- */
+  function isWirable(f) {
+    if (!f || f.dataset.vvWired) return false;
+    if (f.tagName === "TEXTAREA") return !(f.disabled || f.readOnly);
+    if (f.tagName !== "INPUT") return false;
+    var t = (f.getAttribute("type") || "text").toLowerCase();
+    if (t !== "text" && t !== "number") return false;
+    return !(f.disabled || f.readOnly);
+  }
+  function labelFor(f) {
+    var name = "";
+    if (f.id) {
+      var lab = document.querySelector('label[for="' + f.id + '"]');
+      if (lab) name = lab.textContent;
+    }
+    if (!name) {
+      var prev = f.closest ? f.closest("div") : null;
+      var l2 = prev ? prev.querySelector("label") : null;
+      if (l2) name = l2.textContent;
+    }
+    if (!name) name = f.getAttribute("placeholder") || f.getAttribute("name") || "field";
+    return String(name).replace(/\s+/g, " ").trim().slice(0, 60) || "field";
+  }
+  function fireEvents(f) {
+    ["input", "change"].forEach(function (type) {
+      var ev;
+      try { ev = new Event(type, { bubbles: true, composed: true }); }
+      catch (e) { ev = document.createEvent("Event"); ev.initEvent(type, true, true); }
+      f.dispatchEvent(ev);
+    });
+  }
+  function joinText(base, add) {
+    if (!base) return add;
+    if (!add) return base;
+    return base + (/\s$/.test(base) ? "" : " ") + add;
+  }
+
+  /* ---- dictation session ---- */
+  var active = null; // { rec, field, btn, base, finalText, gotResult, done }
+  function stopActive() { if (active && active.rec) { try { active.rec.stop(); } catch (e) {} } }
+  function startDictation(field, btn) {
+    if (active && active.field === field) { stopActive(); return; } // tap again = stop
+    if (active) stopActive();
+    if (!SR) { say(FALLBACK_MSG, 6000); return; }
+    var rec;
+    try { rec = new SR(); } catch (e) { say(FALLBACK_MSG, 6000); return; }
+    var session = { rec: rec, field: field, btn: btn, base: field.value || "", finalText: "", gotResult: false, done: false };
+    active = session;
+    rec.lang = (document.documentElement.getAttribute("lang") || "en-US");
+    rec.interimResults = true;
+    rec.continuous = false;
+    rec.maxAlternatives = 1;
+    btn.classList.add("vv-live");
+    btn.setAttribute("aria-label", "Listening — tap to stop");
+    say("Listening… speak now.");
+    rec.onresult = function (ev) {
+      var interim = "", finalT = "";
+      for (var i = ev.resultIndex; i < ev.results.length; i++) {
+        var r = ev.results[i];
+        if (r.isFinal) finalT += r[0].transcript; else interim += r[0].transcript;
+      }
+      if (finalT) { session.finalText = joinText(session.finalText, finalT.trim()); session.gotResult = true; }
+      var shown = joinText(session.finalText, interim.trim());
+      if (field.type !== "number") field.value = joinText(session.base, shown);
+      else if (shown) field.value = shown; // numbers: show the words until they resolve on end
+    };
+    rec.onerror = function (ev) {
+      if (session.done) return;
+      session.done = true;
+      field.value = session.base;
+      cleanup(session);
+      if (ev && (ev.error === "not-allowed" || ev.error === "service-not-allowed")) say(BLOCKED_MSG, 6500);
+      else if (ev && ev.error === "not-supported") say(FALLBACK_MSG, 6000);
+      else say(MISSED_MSG, 5000);
+    };
+    rec.onend = function () {
+      if (session.done) return;
+      session.done = true;
+      cleanup(session);
+      var heard = (session.finalText || "").trim();
+      if (!heard) { field.value = session.base; say(MISSED_MSG, 5000); return; }
+      if (field.type === "number") {
+        var n = parseSpokenNumber(heard);
+        if (n === null || !isFinite(n)) { field.value = session.base; say(MISSED_MSG, 5000); return; }
+        field.value = String(n);
+      } else {
+        field.value = joinText(session.base, heard);
+      }
+      fireEvents(field);
+      try { field.focus({ preventScroll: false }); } catch (e) {}
+      say("Added: " + heard, 3000);
+    };
+    try { rec.start(); } catch (e) { session.done = true; cleanup(session); field.value = session.base; say(MISSED_MSG, 5000); }
+  }
+  function cleanup(session) {
+    if (active === session) active = null;
+    if (session.btn) { session.btn.classList.remove("vv-live"); session.btn.setAttribute("aria-label", session.btn.dataset.vvLabel || "Voice entry"); }
+  }
+
+  /* ---- wiring ---- */
+  function wireField(f) {
+    if (!isWirable(f)) return;
+    f.dataset.vvWired = "1";
+    var wrap = document.createElement("span");
+    wrap.className = "vv-wrap";
+    f.parentNode.insertBefore(wrap, f);
+    wrap.appendChild(f);
+    var btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "vv-mic";
+    btn.innerHTML = "🎤";
+    var lab = "Voice entry for " + labelFor(f);
+    btn.dataset.vvLabel = lab;
+    btn.setAttribute("aria-label", lab);
+    btn.title = "Voice entry";
+    btn.addEventListener("click", function () { startDictation(f, btn); });
+    wrap.appendChild(btn);
+  }
+  function scan(root) {
+    if (!root || !root.querySelectorAll) return;
+    var fields = root.querySelectorAll("input, textarea");
+    for (var i = 0; i < fields.length; i++) wireField(fields[i]);
+    if (root.tagName && (root.tagName === "INPUT" || root.tagName === "TEXTAREA")) wireField(root);
+  }
+
+  function init() {
+    scan(document);
+    if (window.MutationObserver && document.body) {
+      var pending = false;
+      var obs = new MutationObserver(function (muts) {
+        var hasAdds = false;
+        for (var i = 0; i < muts.length; i++) if (muts[i].addedNodes.length) { hasAdds = true; break; }
+        if (!hasAdds || pending) return;
+        pending = true;
+        setTimeout(function () { pending = false; scan(document); }, 60);
+      });
+      obs.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+  if (document.readyState === "loading") document.addEventListener("DOMContentLoaded", init);
+  else init();
+
+  /* exposed for QA harnesses and future Tell flows */
+  window.__vv = { version: "1.0", supported: !!SR, parseSpokenNumber: parseSpokenNumber, fallbackMessage: FALLBACK_MSG, missedMessage: MISSED_MSG };
+})();
+</script>
+</body>
+</html>
