@@ -49,6 +49,9 @@ section.tab table{display:block;overflow-x:auto;max-width:100%}
   input[type=range]{flex:1;accent-color:var(--green)}
   .verdict{font-size:13px;margin-top:4px}
   .del-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px}
+  .pmb-toggle{min-height:48px}
+  .sum-name{font-weight:600;font-size:16px}
+  .sum-cost{color:var(--green-dark);font-weight:600;white-space:nowrap;font-size:17px}
   .tab{display:none} .tab.active{display:block}
   .gold{background:#fff8e1;border-color:#ffe082}
   ul.tight{margin:6px 0;padding-left:20px} ul.tight li{margin-bottom:4px}
@@ -87,7 +90,7 @@ section.tab table{display:block;overflow-x:auto;max-width:100%}
 <script>
 "use strict";
 /* ============================== DATA ============================== */
-var APP_VERSION = "1.1";
+var APP_VERSION = "1.1.1";
 var LS_KEY = "marketmaker_v1";
 var state = null;
 
@@ -132,7 +135,7 @@ function demoData(){
 function load(){
   try{
     var raw = localStorage.getItem(LS_KEY);
-    if(raw){ state = JSON.parse(raw); if(!state || !state.products) throw new Error("bad"); }
+    if(raw){ state = JSON.parse(raw); if(!state || !Array.isArray(state.ingredients) || !Array.isArray(state.products) || !Array.isArray(state.events)) throw new Error("bad"); if(typeof state.targetMargin !== "number" || !isFinite(state.targetMargin)) state.targetMargin = 0.40; }
     else { state = demoData(); save(); }
   }catch(e){ state = demoData(); }
 }
@@ -159,6 +162,9 @@ function productCost(p){
 /* ============================== UI ============================== */
 var UNITS = ["lb","oz","g","kg","cup","tbsp","tsp","ml","L","each","box","pack","jar","bag"];
 var MM = {};
+/* Cost Builder collapse state (presentation only — never persisted; storage shape unchanged) */
+var uiOpenIng = {};
+var uiOpenProd = null;
 
 function unitOptions(sel){
   return UNITS.map(function(u){ return '<option value="'+u+'"'+(u===sel?" selected":"")+">"+u+"</option>"; }).join("");
@@ -189,18 +195,25 @@ function renderCosting(){
   var h = "";
   h += '<div class="card"><h2>1 · Ingredient library</h2>';
   h += '<p class="hint">Enter what you actually pay: package price and package size. PriceMyBooth works out the cost per unit, so recipes price themselves. Quantities in recipes use the same unit you pick here.</p>';
-  h += '<table><tr><th>Ingredient</th><th class="num">Package price</th><th class="num">Package size</th><th>Unit</th><th class="num">Cost per unit</th><th></th></tr>';
+  h += '<p class="hint" style="margin-top:-4px">Tap <b>▸ Edit</b> on an ingredient to change its package price or size — costs everywhere update as soon as you do.</p>';
   state.ingredients.forEach(function(ing){
-    h += "<tr>"
-      + '<td><input type="text" value="'+esc(ing.name)+'" onchange="MM.ingSet(\''+ing.id+'\',\'name\',this.value)"></td>'
-      + '<td><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ing.pkgPrice+'" onchange="MM.ingSet(\''+ing.id+'\',\'pkgPrice\',this.value)"></td>'
-      + '<td><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ing.pkgSize+'" onchange="MM.ingSet(\''+ing.id+'\',\'pkgSize\',this.value)"></td>'
-      + '<td><select onchange="MM.ingSet(\''+ing.id+'\',\'unit\',this.value)">'+unitOptions(ing.unit)+"</select></td>"
-      + '<td class="num">'+(ing.pkgSize>0 ? money(ingCostPerUnit(ing))+"/"+esc(ing.unit) : '<span class="neg">set size</span>')+"</td>"
-      + '<td><button class="del-btn" title="Delete ingredient" onclick="MM.ingDel(\''+ing.id+'\')">✕</button></td></tr>';
+    var open = !!uiOpenIng[ing.id];
+    var cpuTxt = ing.pkgSize>0 ? money(ingCostPerUnit(ing))+"/"+esc(ing.unit) : "set package size";
+    h += '<div class="card" style="background:#fcfefc;padding:10px 12px;margin-bottom:8px">'
+      + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="sum-name" style="flex:1;min-width:140px">'+esc(ing.name)+' <span class="sum-cost">· '+cpuTxt+'</span></span>'
+      + '<button class="btn small secondary pmb-toggle" aria-expanded="'+(open?"true":"false")+'" onclick="MM.ingToggle(\''+ing.id+'\')">'+(open?"▾ Close":"▸ Edit")+'</button></div>';
+    if(open){
+      h += '<div class="row" style="margin-top:10px">'
+        + '<div style="flex:2"><label>Ingredient name</label><input type="text" value="'+esc(ing.name)+'" onchange="MM.ingSet(\''+ing.id+'\',\'name\',this.value)"></div>'
+        + '<div><label>Package price $</label><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ing.pkgPrice+'" onchange="MM.ingSet(\''+ing.id+'\',\'pkgPrice\',this.value)"></div>'
+        + '<div><label>Package size</label><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ing.pkgSize+'" onchange="MM.ingSet(\''+ing.id+'\',\'pkgSize\',this.value)"></div>'
+        + '<div><label>Unit</label><select onchange="MM.ingSet(\''+ing.id+'\',\'unit\',this.value)">'+unitOptions(ing.unit)+'</select></div></div>'
+        + '<p style="margin:8px 0 0">Cost per unit: <b>'+(ing.pkgSize>0 ? money(ingCostPerUnit(ing))+"/"+esc(ing.unit) : '<span class="neg">set size</span>')+'</b> '
+        + '<button class="del-btn" title="Delete ingredient" onclick="MM.ingDel(\''+ing.id+'\')">✕ Delete ingredient</button></p>';
+    }
+    h += "</div>";
   });
-  if(!state.ingredients.length) h += '<tr><td colspan="6" class="hint">No ingredients yet — add your first one below.</td></tr>';
-  h += "</table>";
+  if(!state.ingredients.length) h += '<p class="hint">No ingredients yet — add your first one below.</p>';
   h += '<div class="row" style="margin-top:10px"><div><label>New ingredient name</label><input type="text" id="ni_name" placeholder="e.g. All-purpose flour"></div>'
      + '<div><label>Package price $</label><input inputmode="decimal" type="number" id="ni_price" step="0.01" min="0" placeholder="5.99"></div>'
      + '<div><label>Package size</label><input inputmode="decimal" type="number" id="ni_size" step="0.01" min="0" placeholder="5"></div>'
@@ -210,9 +223,17 @@ function renderCosting(){
   h += '<div class="card"><h2>2 · Products &amp; recipes</h2>';
   h += '<p class="hint">One product = one batch recipe. Cost per item = (ingredients + your labor) ÷ items the batch makes, plus packaging per item. That is your true cost — the number most vendors guess at.</p>';
   if(!state.products.length) h += '<p class="hint">No products yet — add one below.</p>';
+  h += '<p class="hint" style="margin-top:-4px">Tap <b>▸ Edit recipe</b> on a product to open its recipe — only one product opens at a time.</p>';
   state.products.forEach(function(p){
     var c = productCost(p);
-    h += '<div class="card" style="background:#fcfefc"><h3><input type="text" style="font-size:16px;font-weight:600" value="'+esc(p.name)+'" onchange="MM.prodSet(\''+p.id+'\',\'name\',this.value)"></h3>';
+    var open = (uiOpenProd === p.id);
+    h += '<div class="card" style="background:#fcfefc">'
+      + '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap"><span class="sum-name" style="flex:1;min-width:160px">'+esc(p.name)+'</span>'
+      + '<span class="sum-cost">True cost '+money(c.perItem)+' / item</span>'
+      + '<button class="btn small secondary pmb-toggle" aria-expanded="'+(open?"true":"false")+'" onclick="MM.prodToggle(\''+p.id+'\')">'+(open?"▾ Close":"▸ Edit recipe")+'</button></div>'
+      + '<p class="hint" style="margin:6px 0 0">Batch cost '+money(c.batchCost)+' · makes '+esc(p.yieldQty)+' · ingredients '+money(c.ingredientCost)+' + labor '+money(c.laborCost)+'</p>';
+    if(open){
+    h += '<h3><input type="text" style="font-size:16px;font-weight:600" placeholder="Product name" value="'+esc(p.name)+'" onchange="MM.prodSet(\''+p.id+'\',\'name\',this.value)"></h3>';
     h += '<table><tr><th>Ingredient</th><th class="num">Qty used (in its unit)</th><th class="num">Line cost</th><th></th></tr>';
     (p.lines||[]).forEach(function(ln, idx){
       var ing = ingById(ln.ingredientId);
@@ -236,6 +257,7 @@ function renderCosting(){
        + '<div class="stat"><div class="k">Batch cost</div><div class="v">'+money(c.batchCost)+'</div></div>'
        + '<div class="stat"><div class="k">True cost per item</div><div class="v big">'+money(c.perItem)+'</div></div></div>';
     h += '<p style="margin-top:10px"><button class="btn small danger" onclick="MM.prodDel(\''+p.id+'\')">Delete product</button></p>';
+    }
     h += "</div>";
   });
   h += '<div class="row"><div style="flex:2"><label>New product name</label><input type="text" id="np_name" placeholder="e.g. Blueberry Muffins — 4 pack"></div>'
@@ -244,10 +266,14 @@ function renderCosting(){
   el.innerHTML = h;
 }
 
+MM.ingToggle = function(id){ uiOpenIng[id] = !uiOpenIng[id]; renderCosting(); };
+MM.prodToggle = function(id){ uiOpenProd = (uiOpenProd === id) ? null : id; renderCosting(); };
 MM.ingAdd = function(){
   var name = document.getElementById("ni_name").value.trim();
   if(!name){ alert("Give the ingredient a name first."); return; }
-  state.ingredients.push({id:uid(), name:name, pkgPrice:num(document.getElementById("ni_price").value), pkgSize:num(document.getElementById("ni_size").value), unit:document.getElementById("ni_unit").value});
+  var newIngId = uid();
+  state.ingredients.push({id:newIngId, name:name, pkgPrice:num(document.getElementById("ni_price").value), pkgSize:num(document.getElementById("ni_size").value), unit:document.getElementById("ni_unit").value});
+  uiOpenIng[newIngId] = true;
   state.isDemo = false; save(); render();
 };
 MM.ingSet = function(id, field, v){
@@ -260,13 +286,16 @@ MM.ingDel = function(id){
   if(used && !confirm("This ingredient is used in a recipe. Delete it anyway? (Recipe lines using it will be removed.)")) return;
   state.ingredients = state.ingredients.filter(function(i){ return i.id!==id; });
   state.products.forEach(function(p){ p.lines = (p.lines||[]).filter(function(l){ return l.ingredientId!==id; }); });
+  delete uiOpenIng[id];
   save(); render();
 };
 MM.prodAdd = function(){
   var name = document.getElementById("np_name").value.trim();
   if(!name){ alert("Give the product a name first."); return; }
   var y = Math.max(1, Math.round(num(document.getElementById("np_yield").value)) || 1);
-  state.products.push({id:uid(), name:name, yieldQty:y, packaging:0, laborMinutes:0, laborRate:15, marketPrice:0, lines:[]});
+  var newProdId = uid();
+  state.products.push({id:newProdId, name:name, yieldQty:y, packaging:0, laborMinutes:0, laborRate:15, marketPrice:0, lines:[]});
+  uiOpenProd = newProdId;
   state.isDemo = false; save(); render();
 };
 MM.prodSet = function(id, field, v){
@@ -277,6 +306,7 @@ MM.prodSet = function(id, field, v){
 MM.prodDel = function(id){
   if(!confirm("Delete this product? Past event lines for it will stop counting in totals.")) return;
   state.products = state.products.filter(function(p){ return p.id!==id; });
+  if(uiOpenProd===id) uiOpenProd = null;
   save(); render();
 };
 MM.lineAdd = function(pid){
@@ -346,7 +376,7 @@ function renderEvents(){
   if(!sorted.length) h += '<div class="card"><p class="hint">No events logged yet.</p></div>';
   sorted.forEach(function(ev){
     var s = eventStats(ev);
-    h += '<div class="card"><h3><input type="text" style="font-size:16px;font-weight:600" value="'+esc(ev.name)+'" onchange="MM.evSet(\''+ev.id+'\',\'name\',this.value)"></h3>';
+    h += '<div class="card"><h3><input type="text" style="font-size:16px;font-weight:600" placeholder="Event name" value="'+esc(ev.name)+'" onchange="MM.evSet(\''+ev.id+'\',\'name\',this.value)"></h3>';
     h += '<div class="row">'
        + '<div><label>Date</label><input type="date" value="'+esc(ev.date||"")+'" onchange="MM.evSet(\''+ev.id+'\',\'date\',this.value)"></div>'
        + '<div><label>Booth fee $</label><input inputmode="decimal" type="number" step="0.01" min="0" value="'+ev.boothFee+'" onchange="MM.evSet(\''+ev.id+'\',\'boothFee\',this.value)"></div>'
@@ -468,7 +498,7 @@ function renderHelp(){
     + '<label class="btn secondary" style="display:inline-block;cursor:pointer">⬆ Import backup <input type="file" accept=".json,application/json" style="display:none" onchange="MM.importData(this)"></label></p>'
     + '<h3>Get help</h3>'
     + '<p class="hint">PriceMyBooth v' + APP_VERSION + '</p>'
-    + '<p><a id="helpEmailBtn" class="btn" style="display:inline-block;text-decoration:none" href="mailto:whitewolfbackoffice@gmail.com?subject=PriceMyBooth%20help%20%E2%80%94%20v1.1&amp;body=Tell%20us%20what%20you%20were%20trying%20to%20do%20and%20what%20happened%3A%0A%0A">✉️ Email us</a></p>'
+    + '<p><a id="helpEmailBtn" class="btn" style="display:inline-block;text-decoration:none" href="mailto:whitewolfbackoffice@gmail.com?subject=PriceMyBooth%20help%20%E2%80%94%20v1.1.1&amp;body=Tell%20us%20what%20you%20were%20trying%20to%20do%20and%20what%20happened%3A%0A%0A">✉️ Email us</a></p>'
     + '<h3>Start fresh</h3>'
     + '<p class="hint">'+(state.isDemo ? "This app is showing sample demo data (jam, honey, microgreens). " : "")+'Two different cleanups — pick the right one:</p>'
     + '<p><button class="btn secondary" onclick="MM.clearDemoOnly()">Clear demo data only</button> '
@@ -585,8 +615,8 @@ function productRankings(){
 var TERMS_VERSION = "1.0";
 var LEGAL_APP_NAME = "PriceMyBooth";
 var LEGAL_HAS_DISCLAIMER = true;
-var LEGAL_TERMS_HTML = "<h3>Terms of Use \u2014 White Wolf Digital Apps</h3><p><b>Version 1.0 (DRAFT \u2014 pending attorney review)</b></p><p><b>Seller: White Wolf Tree Service LLC, selling digital products under the name \"White Wolf Digital\"</b></p><p><b>Contact: whitewolfbackoffice@gmail.com</b></p><h4>1. What you're buying</h4><p>Our apps (including ForgeFit AI, ForgeKitchen, TreeBid Pro, SnowBid,</p><p>WashPrice Pro, RoofSquares, JobProfit Tracker, PastureLedger, and the other</p><p>titles sold under White Wolf Digital) are single-file software tools. When</p><p>you buy one, you are buying a <b>license to use the file</b>, not ownership of</p><p>the software itself.</p><h4>2. Your license</h4><ul><li>You may use the app for your own personal or business work.</li><li>You may open it on your own devices (phone, tablet, computer) and move your</li></ul><p>  own data between them using the app's built-in backup/export tools.</p><ul><li>You may <b>not</b> resell, redistribute, give away, upload, or share the app</li></ul><p>  file (or a copy of it) with anyone else \u2014 including posting it online,</p><p>  bundling it with other products, or selling access to it.</p><ul><li>You may <b>not</b> claim the app as your own work, remove its branding or</li></ul><p>  notices, or use it to build a competing product for resale.</p><ul><li>One purchase = one buyer. A business purchase covers the buyer and their</li></ul><p>  own employees using it for that business's work; it does not cover other</p><p>  businesses.</p><h4>3. Your data stays yours \u2014 and stays on your device</h4><ul><li>The current versions of our apps run <b>entirely on your device</b>. They have</li></ul><p>  no accounts, no sign-in, no analytics, and they collect, transmit, and store</p><p>  <b>none</b> of your information on any server. We never see your data.</p><ul><li>Your records are stored in your browser/app storage on your device. **You</li></ul><p>  are responsible for backing them up** using the app's export tools. If you</p><p>  clear your browser data, lose your device, or uninstall the app, your</p><p>  records may be permanently lost, and we cannot recover them \u2014 we never had</p><p>  a copy.</p><ul><li>Files you export (backups, quotes, PDFs) are under your control. Where you</li></ul><p>  store or send them is up to you.</p><h4>4. Estimates are tools, not guarantees</h4><p>Every number our apps produce \u2014 bids, prices, costs, calorie targets,</p><p>projections, schedules, totals \u2014 is an **estimate generated from the</p><p>information you enter and the settings you choose**. Outputs are aids for</p><p>your own judgment, not guarantees of price, profit, outcome, or result. You</p><p>are responsible for checking any output before relying on it (see also the</p><p>disclaimer that applies to your app: Health Disclaimer for fitness/nutrition</p><p>apps, Estimator Disclaimer for contractor tools). If an input is wrong, the</p><p>output will be wrong.</p><h4>5. Acceptable use</h4><p>Don't use the apps to break the law, infringe anyone's rights, or</p><p>misrepresent quotes, invoices, or records to your own customers. For the</p><p>fitness apps, the guardrails in the app (healthy-rate limits, calorie floor)</p><p>are part of the product \u2014 don't treat the app as a way around them.</p><h4>6. Provided \"as is\"</h4><p>The apps are provided **\"as is\" and \"as available,\" without warranties of</p><p>any kind**, express or implied \u2014 including merchantability, fitness for a</p><p>particular purpose, accuracy of calculations, and uninterrupted or</p><p>error-free operation \u2014 to the maximum extent allowed by law. Software has</p><p>bugs; browsers change; we work to fix problems but do not promise any app is</p><p>error-free or will work on every device or browser forever.</p><h4>7. Limitation of liability</h4><p>To the maximum extent allowed by law:</p><ul><li>We are **not liable for indirect, incidental, special, or consequential</li></ul><p>  damages** \u2014 including lost profits, lost or mispriced jobs, lost data, or</p><p>  business interruption \u2014 arising from use of the apps.</p><ul><li>Our total liability for any claim connected to an app is limited to the</li></ul><p>  <b>amount you paid for that app</b>.</p><ul><li>Nothing in these terms limits liability that cannot legally be limited.</li></ul><h4>8. Refunds</h4><p>Refunds are handled **by the storefront you bought from, under that</p><p>storefront's policy** \u2014 Gumroad's refund policy for Gumroad purchases, and</p><p>Google Play's refund policy for Play purchases. These terms do not add to,</p><p>replace, or override the storefront's refund rules. If a file is defective</p><p>and won't open, contact us at whitewolfbackoffice@gmail.com and we'll fix or</p><p>replace the file.</p><h4>9. Updates and changes to these terms</h4><ul><li>We may release updated versions of an app. Updates may add, change, or</li></ul><p>  remove features.</p><ul><li>We may update these terms. The version you agreed to is recorded in the</li></ul><p>  app (version number and date) at first-run acceptance. If terms change,</p><p>  the app may ask you to accept the new version once on next open. Updated</p><p>  terms apply going forward, not retroactively.</p><ul><li>If you don't agree to an updated version of the terms, stop using the app.</li></ul><h4>10. Governing law</h4><p>These terms are governed by the laws of the <b>State of Oklahoma</b>, USA.</p><p>(Attorney to confirm governing law and venue before publication.)</p><h4>11. Contact</h4><p>White Wolf Tree Service LLC (White Wolf Digital) \u2014</p><p>whitewolfbackoffice@gmail.com.</p><h4>CONNECTED FEATURES \u2014 takes effect only when these features ship</h4><p>*The sections below apply only to future connected features (device sync via</p><p>Health Connect, AI voice logging, and the AI Goal Preview in ForgeFit). They</p><p>do not apply to the current offline versions, which never transmit data.*</p><ul><li><b>Opt-in only.</b> Connected features are off by default. Each one asks for</li></ul><p>  your separate, explicit consent \u2014 on its own consent screen, in plain</p><p>  language \u2014 before anything leaves your device. Declining never disables</p><p>  the app's offline features.</p><ul><li><b>What gets sent.</b> Only what the consent screen names, only when you use</li></ul><p>  the feature: for example, a meal description (text, or audio only if cloud</p><p>  transcription is on) for AI voice logging, or the single photo you choose</p><p>  for an AI Goal Preview.</p><ul><li><b>No retention by us.</b> Our relay service passes your request to the named</li></ul><p>  AI provider and keeps nothing \u2014 no copies of your photos, audio,</p><p>  transcripts, or entries are stored on our servers. Provider handling is</p><p>  described on the consent screen and in the Privacy Policy.</p><ul><li><b>Health data stays on the device.</b> Device sync (Health Connect) reads</li></ul><p>  your health data on your phone and stores it in the app on your phone. It</p><p>  is not uploaded to us.</p><ul><li><b>Allowances.</b> Some connected features run on third-party AI services we</li></ul><p>  pay for per use, so they may include a monthly allowance described in the</p><p>  app (for example, a set number of AI previews or voice entries per month),</p><p>  with optional additional credits. Allowances and pricing will be shown in</p><p>  the app before you use the feature; they are not a subscription unless the</p><p>  app says so in plain words.</p><ul><li><b>Permissions.</b> Connected features may request device permissions (such</li></ul><p>  as Health Connect access or the microphone) at the moment you first use</p><p>  them. You can revoke permissions any time in your device settings; the</p><p>  related feature will simply stop working.</p>";
-var LEGAL_DISCLAIMER_HTML = "<h3>Estimator Disclaimer \u2014 Contractor &amp; Trade Tools</h3><p>**Applies to: TreeBid Pro, SnowBid, WashPrice Pro, RoofSquares, JobProfit</p><p>Tracker, FieldForms Toolkit, PaintPro, FenceDeck, PriceMyBooth, and the other</p><p>estimating/pricing tools sold under White Wolf Digital \u2014 including bundles</p><p>that contain them.**</p><h4>Estimating aids, not finished quotes</h4><ul><li>These apps are <b>estimating and record-keeping aids</b>. Every bid, price,</li></ul><p>  cost, measurement, and total they produce is an **estimate based on the</p><p>  information and rates you enter**.</p><ul><li>**You \u2014 the business owner \u2014 are responsible for verifying everything</li></ul><p>  before you quote a customer:** measurements and quantities, site</p><p>  conditions, your current material and labor costs, your rates and margins,</p><p>  taxes, permit and license requirements, disposal rules, and any contract</p><p>  terms.</p><ul><li>Default rates, presets, and sample data included in the apps are starting</li></ul><p>  points only. They are not market prices, not industry standards, and not</p><p>  a recommendation of what you should charge.</p><ul><li>A saved quote keeps the prices in effect when you created it (price</li></ul><p>  snapshot). Changing your presets later does not change saved quotes \u2014</p><p>  and a saved quote is still your responsibility to review before sending.</p><h4>Specific tools</h4><ul><li><b>TreeBid Pro:</b> tree work is dangerous and site-specific. Difficulty</li></ul><p>  factors and presets cannot see the actual tree, lean, rot, targets, or</p><p>  access. Inspect every job in person before final pricing. The \"Invoice</p><p>  with Wave\" feature is an open-and-paste handoff \u2014 TreeBid does not</p><p>  connect to Wave, and the invoice you send from Wave is yours.</p><ul><li><b>RoofSquares / measurement tools:</b> confirm roof measurements and pitch</li></ul><p>  in person or by your usual method before ordering materials.</p><ul><li><b>SnowBid / seasonal tools:</b> route times, snowfall amounts, and service</li></ul><p>  pricing vary by storm and site; seasonal contracts are your agreement</p><p>  with your customer, on your terms.</p><ul><li><b>JobProfit Tracker:</b> profit figures depend on the costs you enter.</li></ul><p>  The app is not accounting or tax software and does not replace your</p><p>  bookkeeper or accountant.</p><h4>Bottom line</h4><p>If an output and your judgment disagree, trust your judgment \u2014 then fix the</p><p>input. We are not responsible for jobs won, lost, or mispriced based on app</p><p>outputs, within the limits of the Terms of Use.</p>";
+var LEGAL_TERMS_HTML = "<h3>Terms of Use \u2014 White Wolf Apps</h3><p><b>Version 1.0 (DRAFT \u2014 pending attorney review)</b></p><p><b>Seller: White Wolf Apps</b></p><p><b>Contact: whitewolfbackoffice@gmail.com</b></p><h4>1. What you're buying</h4><p>Our apps (including LogEasy, ForgeKitchen, BranchMath, SnowBid,</p><p>GrimeMath, RoofSquares, ProfitFlag, PastureLedger, and the other</p><p>titles sold under White Wolf Apps) are single-file software tools. When</p><p>you buy one, you are buying a <b>license to use the file</b>, not ownership of</p><p>the software itself.</p><h4>2. Your license</h4><ul><li>You may use the app for your own personal or business work.</li><li>You may open it on your own devices (phone, tablet, computer) and move your</li></ul><p>  own data between them using the app's built-in backup/export tools.</p><ul><li>You may <b>not</b> resell, redistribute, give away, upload, or share the app</li></ul><p>  file (or a copy of it) with anyone else \u2014 including posting it online,</p><p>  bundling it with other products, or selling access to it.</p><ul><li>You may <b>not</b> claim the app as your own work, remove its branding or</li></ul><p>  notices, or use it to build a competing product for resale.</p><ul><li>One purchase = one buyer. A business purchase covers the buyer and their</li></ul><p>  own employees using it for that business's work; it does not cover other</p><p>  businesses.</p><h4>3. Your data stays yours \u2014 and stays on your device</h4><ul><li>The current versions of our apps run <b>entirely on your device</b>. They have</li></ul><p>  no accounts, no sign-in, no analytics, and they collect, transmit, and store</p><p>  <b>none</b> of your information on any server. We never see your data.</p><ul><li>Your records are stored in your browser/app storage on your device. **You</li></ul><p>  are responsible for backing them up** using the app's export tools. If you</p><p>  clear your browser data, lose your device, or uninstall the app, your</p><p>  records may be permanently lost, and we cannot recover them \u2014 we never had</p><p>  a copy.</p><ul><li>Files you export (backups, quotes, PDFs) are under your control. Where you</li></ul><p>  store or send them is up to you.</p><h4>4. Estimates are tools, not guarantees</h4><p>Every number our apps produce \u2014 bids, prices, costs, calorie targets,</p><p>projections, schedules, totals \u2014 is an **estimate generated from the</p><p>information you enter and the settings you choose**. Outputs are aids for</p><p>your own judgment, not guarantees of price, profit, outcome, or result. You</p><p>are responsible for checking any output before relying on it (see also the</p><p>disclaimer that applies to your app: Health Disclaimer for fitness/nutrition</p><p>apps, Estimator Disclaimer for contractor tools). If an input is wrong, the</p><p>output will be wrong.</p><h4>5. Acceptable use</h4><p>Don't use the apps to break the law, infringe anyone's rights, or</p><p>misrepresent quotes, invoices, or records to your own customers. For the</p><p>fitness apps, the guardrails in the app (healthy-rate limits, calorie floor)</p><p>are part of the product \u2014 don't treat the app as a way around them.</p><h4>6. Provided \"as is\"</h4><p>The apps are provided **\"as is\" and \"as available,\" without warranties of</p><p>any kind**, express or implied \u2014 including merchantability, fitness for a</p><p>particular purpose, accuracy of calculations, and uninterrupted or</p><p>error-free operation \u2014 to the maximum extent allowed by law. Software has</p><p>bugs; browsers change; we work to fix problems but do not promise any app is</p><p>error-free or will work on every device or browser forever.</p><h4>7. Limitation of liability</h4><p>To the maximum extent allowed by law:</p><ul><li>We are **not liable for indirect, incidental, special, or consequential</li></ul><p>  damages** \u2014 including lost profits, lost or mispriced jobs, lost data, or</p><p>  business interruption \u2014 arising from use of the apps.</p><ul><li>Our total liability for any claim connected to an app is limited to the</li></ul><p>  <b>amount you paid for that app</b>.</p><ul><li>Nothing in these terms limits liability that cannot legally be limited.</li></ul><h4>8. Refunds</h4><p>Refunds are handled **by the storefront you bought from, under that</p><p>storefront's policy** \u2014 Gumroad's refund policy for Gumroad purchases, and</p><p>Google Play's refund policy for Play purchases. These terms do not add to,</p><p>replace, or override the storefront's refund rules. If a file is defective</p><p>and won't open, contact us at whitewolfbackoffice@gmail.com and we'll fix or</p><p>replace the file.</p><h4>9. Updates and changes to these terms</h4><ul><li>We may release updated versions of an app. Updates may add, change, or</li></ul><p>  remove features.</p><ul><li>We may update these terms. The version you agreed to is recorded in the</li></ul><p>  app (version number and date) at first-run acceptance. If terms change,</p><p>  the app may ask you to accept the new version once on next open. Updated</p><p>  terms apply going forward, not retroactively.</p><ul><li>If you don't agree to an updated version of the terms, stop using the app.</li></ul><h4>10. Governing law</h4><p>These terms are governed by the laws of the <b>State of Oklahoma</b>, USA.</p><p>(Attorney to confirm governing law and venue before publication.)</p><h4>11. Contact</h4><p>White Wolf Apps \u2014</p><p>whitewolfbackoffice@gmail.com.</p><h4>CONNECTED FEATURES \u2014 takes effect only when these features ship</h4><p>*The sections below apply only to future connected features (device sync via</p><p>Health Connect, AI voice logging, and the AI Goal Preview in LogEasy). They</p><p>do not apply to the current offline versions, which never transmit data.*</p><ul><li><b>Opt-in only.</b> Connected features are off by default. Each one asks for</li></ul><p>  your separate, explicit consent \u2014 on its own consent screen, in plain</p><p>  language \u2014 before anything leaves your device. Declining never disables</p><p>  the app's offline features.</p><ul><li><b>What gets sent.</b> Only what the consent screen names, only when you use</li></ul><p>  the feature: for example, a meal description (text, or audio only if cloud</p><p>  transcription is on) for AI voice logging, or the single photo you choose</p><p>  for an AI Goal Preview.</p><ul><li><b>No retention by us.</b> Our relay service passes your request to the named</li></ul><p>  AI provider and keeps nothing \u2014 no copies of your photos, audio,</p><p>  transcripts, or entries are stored on our servers. Provider handling is</p><p>  described on the consent screen and in the Privacy Policy.</p><ul><li><b>Health data stays on the device.</b> Device sync (Health Connect) reads</li></ul><p>  your health data on your phone and stores it in the app on your phone. It</p><p>  is not uploaded to us.</p><ul><li><b>Allowances.</b> Some connected features run on third-party AI services we</li></ul><p>  pay for per use, so they may include a monthly allowance described in the</p><p>  app (for example, a set number of AI previews or voice entries per month),</p><p>  with optional additional credits. Allowances and pricing will be shown in</p><p>  the app before you use the feature; they are not a subscription unless the</p><p>  app says so in plain words.</p><ul><li><b>Permissions.</b> Connected features may request device permissions (such</li></ul><p>  as Health Connect access or the microphone) at the moment you first use</p><p>  them. You can revoke permissions any time in your device settings; the</p><p>  related feature will simply stop working.</p>";
+var LEGAL_DISCLAIMER_HTML = "<h3>Estimator Disclaimer \u2014 Contractor &amp; Trade Tools</h3><p>**Applies to: BranchMath, SnowBid, GrimeMath, RoofSquares, ProfitFlag, PaperBoots, CoatMath, FenceDeck, PriceMyBooth, and the other</p><p>estimating/pricing tools sold under White Wolf Apps \u2014 including bundles</p><p>that contain them.**</p><h4>Estimating aids, not finished quotes</h4><ul><li>These apps are <b>estimating and record-keeping aids</b>. Every bid, price,</li></ul><p>  cost, measurement, and total they produce is an **estimate based on the</p><p>  information and rates you enter**.</p><ul><li>**You \u2014 the business owner \u2014 are responsible for verifying everything</li></ul><p>  before you quote a customer:** measurements and quantities, site</p><p>  conditions, your current material and labor costs, your rates and margins,</p><p>  taxes, permit and license requirements, disposal rules, and any contract</p><p>  terms.</p><ul><li>Default rates, presets, and sample data included in the apps are starting</li></ul><p>  points only. They are not market prices, not industry standards, and not</p><p>  a recommendation of what you should charge.</p><ul><li>A saved quote keeps the prices in effect when you created it (price</li></ul><p>  snapshot). Changing your presets later does not change saved quotes \u2014</p><p>  and a saved quote is still your responsibility to review before sending.</p><h4>Specific tools</h4><ul><li><b>BranchMath:</b> tree work is dangerous and site-specific. Difficulty</li></ul><p>  factors and presets cannot see the actual tree, lean, rot, targets, or</p><p>  access. Inspect every job in person before final pricing. The \"Invoice</p><p>  with Wave\" feature is an open-and-paste handoff \u2014 BranchMath does not</p><p>  connect to Wave, and the invoice you send from Wave is yours.</p><ul><li><b>RoofSquares / measurement tools:</b> confirm roof measurements and pitch</li></ul><p>  in person or by your usual method before ordering materials.</p><ul><li><b>SnowBid / seasonal tools:</b> route times, snowfall amounts, and service</li></ul><p>  pricing vary by storm and site; seasonal contracts are your agreement</p><p>  with your customer, on your terms.</p><ul><li><b>ProfitFlag:</b> profit figures depend on the costs you enter.</li></ul><p>  The app is not accounting or tax software and does not replace your</p><p>  bookkeeper or accountant.</p><h4>Bottom line</h4><p>If an output and your judgment disagree, trust your judgment \u2014 then fix the</p><p>input. We are not responsible for jobs won, lost, or mispriced based on app</p><p>outputs, within the limits of the Terms of Use.</p>";
 (function(){
   var lst = document.createElement("style");
   lst.textContent = "@media print{ #legalOverlay{ display:none !important; } }";
@@ -622,7 +652,7 @@ function legalSectionHTML(){
   }
   h += '<h3>Privacy</h3>'
     + '<p>This app collects no data. It has no accounts, no sign-in, no analytics, and no server \u2014 everything you enter is stored only on this device, in this browser\u2019s storage, and nothing is transmitted anywhere. Files you export (backups, quotes, prints) are under your control. You are responsible for backing up your records with the app\u2019s export tools.</p>'
-    + '<p>Sold by White Wolf Tree Service LLC (White Wolf Digital) \u2014 whitewolfbackoffice@gmail.com</p>'
+    + '<p>Sold by White Wolf Apps \u2014 whitewolfbackoffice@gmail.com</p>'
     + '</div>';
   return h;
 }
@@ -817,10 +847,43 @@ else setTimeout(legalInit, 30);
       var lab = document.querySelector('label[for="' + f.id + '"]');
       if (lab) name = lab.textContent;
     }
+    if (!name && f.closest) {
+      var wrapLab = f.closest("label");
+      if (wrapLab) name = wrapLab.textContent;
+    }
+    if (!name && f.closest) {
+      var td = f.closest("td");
+      if (td && td.parentNode) {
+        var cellIdx = 0, sib = td;
+        while ((sib = sib.previousElementSibling)) cellIdx++;
+        var tbl = f.closest("table");
+        var hrow = tbl ? tbl.querySelector("tr") : null;
+        var hcell = hrow ? hrow.children[cellIdx] : null;
+        if (hcell && hcell.tagName === "TH" && hcell.textContent && hcell.textContent.trim()) name = hcell.textContent;
+      }
+    }
     if (!name) {
-      var prev = f.closest ? f.closest("div") : null;
-      var l2 = prev ? prev.querySelector("label") : null;
-      if (l2) name = l2.textContent;
+      var node = f.parentNode, depth = 0;
+      while (node && depth < 4 && !name) {
+        if (node.querySelectorAll) {
+          var labs = node.querySelectorAll("label");
+          if (labs.length) {
+            var fields = 0, all = node.querySelectorAll("input, textarea");
+            for (var i = 0; i < all.length; i++) {
+              var t = (all[i].getAttribute("type") || "text").toLowerCase();
+              if (all[i].tagName === "TEXTAREA" || t === "text" || t === "number") fields++;
+            }
+            if (fields === 1) name = labs[0].textContent;
+            else {
+              var pv = f.previousElementSibling;
+              if ((!pv || pv.tagName !== "LABEL") && f.parentNode) pv = f.parentNode.previousElementSibling;
+              if (pv && pv.tagName === "LABEL") name = pv.textContent;
+            }
+            if (!name) break;
+          }
+        }
+        node = node.parentNode; depth++;
+      }
     }
     if (!name) name = f.getAttribute("placeholder") || f.getAttribute("name") || "field";
     return String(name).replace(/\s+/g, " ").trim().slice(0, 60) || "field";
