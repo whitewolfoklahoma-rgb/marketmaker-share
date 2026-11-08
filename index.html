@@ -49,7 +49,7 @@ section.tab table{display:block;overflow-x:auto;max-width:100%}
   input[type=range]{flex:1;accent-color:var(--green)}
   .verdict{font-size:13px;margin-top:4px}
   .del-btn{background:none;border:none;color:var(--red);cursor:pointer;font-size:16px;padding:2px 6px}
-  .pmb-toggle{min-height:48px}
+  .btn.small.pmb-toggle{min-height:48px}
   .sum-name{font-weight:600;font-size:16px}
   .sum-cost{color:var(--green-dark);font-weight:600;white-space:nowrap;font-size:17px}
   .tab{display:none} .tab.active{display:block}
@@ -90,7 +90,7 @@ section.tab table{display:block;overflow-x:auto;max-width:100%}
 <script>
 "use strict";
 /* ============================== DATA ============================== */
-var APP_VERSION = "1.1.1";
+var APP_VERSION = "1.1.2";
 var LS_KEY = "marketmaker_v1";
 var state = null;
 
@@ -498,7 +498,7 @@ function renderHelp(){
     + '<label class="btn secondary" style="display:inline-block;cursor:pointer">⬆ Import backup <input type="file" accept=".json,application/json" style="display:none" onchange="MM.importData(this)"></label></p>'
     + '<h3>Get help</h3>'
     + '<p class="hint">PriceMyBooth v' + APP_VERSION + '</p>'
-    + '<p><a id="helpEmailBtn" class="btn" style="display:inline-block;text-decoration:none" href="mailto:whitewolfbackoffice@gmail.com?subject=PriceMyBooth%20help%20%E2%80%94%20v1.1.1&amp;body=Tell%20us%20what%20you%20were%20trying%20to%20do%20and%20what%20happened%3A%0A%0A">✉️ Email us</a></p>'
+    + '<p><a id="helpEmailBtn" class="btn" style="display:inline-block;text-decoration:none" href="mailto:whitewolfbackoffice@gmail.com?subject=PriceMyBooth%20help%20%E2%80%94%20v1.1.2&amp;body=Tell%20us%20what%20you%20were%20trying%20to%20do%20and%20what%20happened%3A%0A%0A">✉️ Email us</a></p>'
     + '<h3>Start fresh</h3>'
     + '<p class="hint">'+(state.isDemo ? "This app is showing sample demo data (jam, honey, microgreens). " : "")+'Two different cleanups — pick the right one:</p>'
     + '<p><button class="btn secondary" onclick="MM.clearDemoOnly()">Clear demo data only</button> '
